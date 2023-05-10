@@ -1,26 +1,11 @@
-﻿using ICSharpCode.SharpZipLib.BZip2;
-using System.Xml;
-using Creational;
+﻿using Creational;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Data.SqlClient;
-using NLog;
 using Newtonsoft.Json;
-using static System.Net.Mime.MediaTypeNames;
-
-var fileName = @"c:\users\jens\downloads\dewiki-20230501-pages-articles.xml.bz2";
-
-var fileLength = new FileInfo(fileName).Length;
-
-using var zippedStream = new FileStream(@"c:\users\jens\downloads\dewiki-20230501-pages-articles.xml.bz2", FileMode.Open, FileAccess.Read);
-using var xmlStream = new BZip2InputStream(zippedStream);
-var xmlReader = XmlReader.Create(xmlStream);
-
-var elements = xmlReader.StreamElements();
 
 IServiceProvider serviceProvider;
 {
-    var connectionString = @"Server=.\;Database=creational;integrated security=true";
+    var connectionString = @"Server=.\;Database=creational-test;integrated security=true";
     var services = new ServiceCollection();
     services.AddDbContextFactory<ApplicationDb>(o => o.UseSqlServer(connectionString));
     serviceProvider = services.BuildServiceProvider();
@@ -28,71 +13,17 @@ IServiceProvider serviceProvider;
 
 var dbFactory = serviceProvider.GetRequiredService<IDbContextFactory<ApplicationDb>>();
 
-var log = LogManager.GetLogger("main");
+var page = JsonConvert.DeserializeObject<WikiPage>(
+    @"{""Title"":""Rohrsänger"",""Ns"":0,""Id"":26288,""Issue"":null,""Content"":{""Title"":null,""Page"":null,""Text"":""<!-- Für Informationen zum Umgang mit dieser Vorlage siehe bitte [[Wikipedia:Taxoboxen]]. -->\n{{Taxobox\n| Taxon_Name       = Rohrsänger\n| Taxon_WissName   = Acrocephalus\n| Taxon_Rang       = Gattung\n| Taxon_Autor      = [[Johann Andreas Naumann|J. A. Naumann]] & [[Johann Friedrich Naumann|J. F. Naumann]], 1811\n| Taxon2_Name      = Rohrsängerartige\n| Taxon2_WissName  = Acrocephalidae\n| Taxon2_Rang      = Familie\n| Taxon3_WissName  = Locustelloidea\n| Taxon3_Rang      = Überfamilie\n| Taxon4_Name      = Singvögel\n| Taxon4_WissName  = Passeri\n| Taxon4_Rang      = Unterordnung\n| Taxon5_Name      = Sperlingsvögel\n| Taxon5_WissName  = Passeriformes\n| Taxon5_Rang      = Ordnung\n| Taxon6_Name      = Neukiefervögel\n| Taxon6_WissName  = Neognathae\n| Taxon6_Rang      = Unterklasse\n| Bild             = Carricero tordal.jpg\n| Bildbeschreibung = [[Drosselrohrsänger]] (''Acrocephalus arundinaceus'')\n}}\n[[Datei:Marshwarbler primaryprojection.jpg|mini|Sumpfrohrsänger (''A. palustris''), einer der oberseits einfarbigen Rohrsänger.]]\n[[Datei:Acrocephalus scirpaceus 01 by-dpc.jpg|mini|Nest mit Einern des [[Teichrohrsänger]]s (''Acrocephalus scirpaceus'')]]\n[[Datei:Acrocephalus palustris 03.JPG|mini|Nest und Jungvögel des [[Sumpfrohrsänger]]s (''Acrocephalus palustris'')]]\nDie '''Rohrsänger''' (''Acrocephalus'') sind eine [[Gattung (Biologie)|Gattung]] der [[Vögel]].<ref>Johann Andreas Naumann, Friedrich Naumann: ''Naturgeschichte der Land- und Wasser-Vögel des nördlichen Deutschlands und angränzender Länder. Nachtrag.'' 4.&nbsp;Heft, Köthen 1811, S.&nbsp;199</ref> Aktuell wird die Gattung zusammen mit anderen Gattungen in eine eigene [[Familie (Biologie)|Familie]] [[Rohrsängerartige|Acrocephalidae]] gestellt<ref name=\""IOC\""> Frank Gill, David Donsker: [https://www.worldbirdnames.org/bow/bushtits/ ''Bushtits, leaf warblers & reed warblers.''] IOC World Bird Names, 2020 (version 10.2.)</ref>, traditionell wurde sie der Familie der [[Grasmückenartige]]n (Sylviidae) zugeordnet. Die Rohrsänger sind in der [[Alte Welt|Alten Welt]] verbreitet, den größten Artenreichtum weist die [[Paläarktis]] auf. Zurzeit werden 43 Arten anerkannt.<ref name=\""IOC\""/>\n\n== Beschreibung ==\nRohrsänger sind schlanke Singvögel mit schmalem bis abgeflachtem Schnabel, der an der Basis wenige kräftige Borsten aufweist. Der Schwanz ist meist gestuft bis stark gerundet und auf dem [[Vogelfuß|Tarsometatarsus]] bleibt die Beschilderung auch bei [[adult]]en Vögeln sichtbar.\n\nDie Gattung lässt sich in zwei generelle Färbungstypen unterteilen. Bei der einen Gruppe ist die Oberseite weitgehend einfarbig braun oder oliv und der Schwanz ist ebenfalls weitgehend einfarbig, hierzu zählen in Mitteleuropa z. B. Teich- und Sumpfrohrsänger. Die zweite Gruppe ist auf der Oberseite auf beigem oder bräunlichem Grund ähnlich wie die [[Schwirle]] (''Locustella'') kräftig dunkel gestreift und gefleckt, anders als bei diesen ist aber auch der Oberkopf kräftig dunkel gezeichnet, ein Überaugenstreif ist ausgeprägt und die Schwanzaußenkanten sind weiß. Zu dieser Gruppe gehört in Mitteleuropa z. B. der Schilfrohrsänger. Die Geschlechter unterscheiden sich äußerlich nicht.\n\n== Verbreitung und Lebensraum ==\nDie Rohrsänger sind in der [[Alte Welt|Alten Welt]] verbreitet, den größten Artenreichtum weist die [[Paläarktis]] auf. Acht Arten kommen in Afrika oder auf benachbarten Inseln vor, die übrigen Arten bewohnen Inseln im westlichen [[Pazifischer Ozean|Pazifik]] und im [[Indischer Ozean|Indischen Ozean]].\n\nDie meisten Rohrsänger bewohnen die [[Verlandung|Verlandungszonen]] von Gewässern, nur einige [[Endemit]]en pazifischer Inseln bewohnen neben grasreichen Habitaten und Gebüsch auch tropische Wälder. Das [[Sympatrie|sympatrische]] Vorkommen der sechs mitteleuropäischen Arten wird durch die jeweils weitgehend artspezifische Habitatwahl ermöglicht. Dabei besiedelt der Drosselrohrsänger die höchste Vegetation im tiefen Wasser und der Seggenrohrsänger die niedrigste Vegetation im flachen Wasser, während Teich-, Marisken-, Sumpf- und Schilfrohrsänger in dieser Reihenfolge mit zum Teil erheblichen Überlappungen einen Gradienten abnehmender Vegetationshöhe und zunehmender Trockenheit besiedeln.\n\n== Fortpflanzung ==\nDie meisten Arten sind [[Monogamie|monogam]], Ausnahmen unter den mitteleuropäischen Arten sind Drosselrohrsänger ([[Polygynie|polygyn]]) und Seggenrohrsänger (polygyn bis [[Promiskuität|promisk]]). Das Nest wird in dichter Vegetation errichtet und bei den meisten Arten in Wassernähe an Halmen verankert. Es ist tief napfförmig. Die Eier sind auf blassgrünem Grund je nach Art dunkel gefleckt oder weisen eine feine und dichte olivfarbene bis rostbraune Sprenkelung auf. Die nackten Nestlinge haben einen gelb-orangen Rachen mit gelblichen Randwülsten und zwei schwarzen Flecken an der Zungenbasis.\n\n== Arten ==\nAktuell werden 43 Arten anerkannt:<ref name=\""IOC\"" />\n\n* [[Basrarohrsänger]] (''Acrocephalus griseldis'')\n* [[Kapverdenrohrsänger]] (''Acrocephalus brevipennis'')\n* [[Papyrusrohrsänger]] (''Acrocephalus rufescens'')\n* [[Kaprohrsänger]] (''Acrocephalus gracilirostris'')\n* [[Madagaskarrohrsänger]] (''Acrocephalus newtoni'')\n* [[Seychellenrohrsänger]] (''Acrocephalus sechellensis'')\n* [[Rodriguesrohrsänger]] (''Acrocephalus rodericanus'')\n* [[Drosselrohrsänger]] (''Acrocephalus arundinaceus'')\n* [[Chinarohrsänger]] (''Acrocephalus orientalis'')\n* [[Stentorrohrsänger]] (''Acrocephalus stentoreus'')\n* [[Australrohrsänger]] (''Acrocephalus australis'')\n* [[Hawaii-Rohrsänger|Hawaiirohrsänger]] (''Acrocephalus familiaris'')\n** [[Laysan-Rohrsänger]] (''A. familiaris familiaris'')\n** [[Nihoa-Rohrsänger]] (''A. familiaris kingi'')\n* [[Guamrohrsänger]] (''Acrocephalus luscinius'')\n* [[Marianenrohrsänger]] (''Acrocephalus hiwae'')\n* [[Aguijanrohrsänger]] (''Acrocephalus nijoi'')\n* [[Paganrohrsänger]] (''Acrocephalus yamashinae'')\n* [[Mangarevarohrsänger]] (''Acrocephalus astrolabii'')\n* [[Naururohrsänger]] (''Acrocephalus rehsei'')\n* [[Carolinenrohrsänger]] (''Acrocephalus syrinx'')\n* [[Kiribatirohrsänger]] (''Acrocephalus aequinoctialis'')\n* [[Nordmarquesas-Rohrsänger]] (''Acrocephalus percernis'')\n** [[Eiao-Rohrsänger]] (''A. percernis aquilonis'')\n* [[Langschnabel-Rohrsänger]] (''Acrocephalus caffer'')\n* [[Moorearohrsänger]] (''Acrocephalus longirostris'', wurde früher als Unterart des Langschnabel-Rohrsängers (''A. caffer'') betrachtet.)\n* [[Forsterrohrsänger]] (''Acrocephalus musae'')\n* [[Südmarquesas-Rohrsänger]] (''Acrocephalus mendanae'')\n* [[Tuamoturohrsänger]] (''Acrocephalus atyphus'')\n* [[Cookinsel-Rohrsänger]] (''Acrocephalus kerearako'')\n* [[Rimatararohrsänger]] (''Acrocephalus rimitarae'')\n* [[Hendersonrohrsänger]] (''Acrocephalus taiti'')\n* [[Pitcairnrohrsänger]] (''Acrocephalus vaughani'')\n* [[Brauenrohrsänger]] (''Acrocephalus bistrigiceps'')\n* [[Mariskensänger|Mariskenrohrsänger]] (''Acrocephalus melanopogon'')\n* [[Seggenrohrsänger]] (''Acrocephalus paludicola'')\n* [[Schilfrohrsänger]] (''Acrocephalus schoenobaenus'')\n* [[Hirserohrsänger]] (''Acrocephalus sorghophilus'')\n* [[Strauchrohrsänger]] (''Acrocephalus concinens'')\n* [[Mandschurenrohrsänger]] (''Acrocephalus tangorum'')\n* [[Großschnabel-Rohrsänger]] (''Acrocephalus orinus'')\n* [[Feldrohrsänger]] (''Acrocephalus agricola'')\n* [[Buschrohrsänger]] (''Acrocephalus dumetorum'')\n* [[Teichrohrsänger]] (''Acrocephalus scirpaceus'')\n* [[Zimtrohrsänger]] (''Acrocephalus baeticatus'')\n* [[Sumpfrohrsänger]] (''Acrocephalus palustris'')\n\n== Literatur ==\n* [[Urs N. Glutz von Blotzheim]], [[Kurt Bauer (Ornithologe)|Kurt M. Bauer]] (Hrsg.): ''Handbuch der Vögel Mitteleuropas.'' Band 12/I: ''Passeriformes.'' 3. Teil: ''Sylviidae. Zweigsänger, Seidensänger, Schwirle, Spötter.'' Unter Mitwirkung von Jürgen Haffer. Aula, Wiesbaden 1991, ISBN 3-89104-021-0, S.&nbsp;208–213.\n\n== Weblinks ==\n{{Commons|Acrocephalus|Rohrsänger}}\n\n== Einzelnachweise ==\n<references/>\n\n{{SORTIERUNG:Rohrsanger}}\n[[Kategorie:Rohrsängerartige]]"",""Model"":""wikitext"",""Format"":""text/x-wiki"",""Sha1"":""cg31nbpw6u4942gbmi5td3hxjeeo4tl""}}"
+);
 
-WikiPage GetPage(XPage element)
-{
-    var title = element.Title;
-    var rev = element.Revision;
+page.Title = "x";
+page.Content.Sha1 = "";
+page.Content.Model = "";
+page.Content.Format = "";
 
-    return new WikiPage
-    {
-        Title = title,
-        Id = element.Id,
-        Ns = element.Ns,
-        Content = new WikiPageContent
-        {
-            Text = rev.Text,
-            Model = rev.Model,
-            Format = rev.Format,
-            Sha1 = rev.Sha1
-        }
-    };
-}
+var db = dbFactory.CreateDbContext();
 
-log.Info($"Starting");
+db.Pages.Add(page);
 
-var i = 0;
-var boxes = 0;
-foreach (var element in elements)
-{
-    ++i;
-
-    if (element is null) continue;
-
-    var percent = zippedStream.Position * 100 / fileLength;
-
-    var text = element.Revision.Text;
-
-    if (text.Contains("taxobox", StringComparison.InvariantCultureIgnoreCase))
-    {
-        ++boxes;
-
-        var title = element.Title;
-
-        var db = dbFactory.CreateDbContext();
-
-        using var transaction = db.Database.BeginTransaction();
-
-        try
-        {
-            db.Database.ExecuteSqlRaw(
-                $"delete from {nameof(ApplicationDb.Pages)} where {nameof(WikiPage.Title)} = @title",
-                new SqlParameter("@title", title));
-
-            db.Pages.Add(GetPage(element));
-
-            db.SaveChanges();
-
-            transaction.Commit();
-        }
-        catch (Exception ex)
-        {
-            log.Error(ex, $"Failed to write to database, entity is:\n\n{JsonConvert.SerializeObject(GetPage(element))}\n");
-        }
-    }
-
-    if (i % 1000 == 0) log.Info($"at #{i} with {boxes} taxoboxes ({percent:d}% processed)");
-}
-
-log.Info($"Read {i} elements with {boxes} taxoboxes");
+db.SaveChanges();

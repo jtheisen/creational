@@ -109,7 +109,7 @@ public class ApplicationDb : DbContext
             .HasForeignKey<WikiPageContent>(e => e.Title)
             ;
 
-        //SetUnicode(modelBuilder);
+        SetUnicode(modelBuilder);
         SetCascades(modelBuilder);
     }
 
