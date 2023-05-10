@@ -48,51 +48,10 @@ public class WikiPageContent
     public String Sha1 { get; set; }
 }
 
-//public class WpProcessedLocationClade
-//{
-//    [StringLength(200)]
-//    public String Url { get; set; }
-
-//    [CascadeDelete]
-//    public WpProcessedLocation ProcessedLocation { get; set; }
-
-//    public DateTimeOffset LastProcessedAt { get; set; }
-
-//    public Int32 Order { get; set; }
-//}
-
-//public class Creature
-//{
-//    [Key]
-//    [StringLength(80)]
-//    public String Name { get; set; }
-
-//    public Creature Parent { get; set; }
-
-//    public String ParentName { get; set; }
-
-//    public ICollection<CreatureImage> Images { get; set; }
-//}
-
-//public class CreatureImage
-//{
-//    [Key]
-//    [StringLength(80)]
-//    public String Name { get; set; }
-
-//    public Creature Creature { get; set; }
-
-//    [StringLength(200)]
-//    public String Url { get; set; }
-//}
-
 public class ApplicationDb : DbContext
 {
     public DbSet<WikiPage> Pages { get; set; }
     public DbSet<WikiPageContent> PageContents { get; set; }
-    //public DbSet<WpProcessedLocation> WpProcessedLocations { get; set; }
-    //public DbSet<Creature> Creatures { get; set; }
-    //public DbSet<CreatureImage> Images { get; set; }
 
     public ApplicationDb(DbContextOptions options)
         : base(options)
