@@ -1,6 +1,6 @@
 # ADO.NET / SQL Server Issue reproduction case
 
-This branch holds is meant to reproduce a bug in ADO.NET, [filed here](https://github.com/dotnet/efcore/issues/30871).
+This branch holds a reproduction for a bug in ADO.NET, [filed here](https://github.com/dotnet/efcore/issues/30871).
 
 To reproduce:
 
