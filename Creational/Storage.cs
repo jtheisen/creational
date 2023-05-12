@@ -88,9 +88,13 @@ public class ParsingResult
     [StringLength(1000)]
     public String Exception { get; set; }
 
+    public Boolean HasTruncationIssue { get; set; }
+
     public Boolean WithTaxobox { get; set; }
 
     public ICollection<TaxoboxEntry> TaxoboxEntries { get; set; }
+
+    public ICollection<TaxonomyEntry> TaxonomyEntries { get; set; }
 }
 
 public class TaxoboxEntry
@@ -106,6 +110,27 @@ public class TaxoboxEntry
 
     [StringLength(200)]
     public String Value { get; set; }
+}
+
+public class TaxonomyEntry
+{
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    public Int32 No { get; set; }
+
+    [CascadeDelete]
+    public ParsingResult ParsedPage { get; set; }
+
+    [StringLength(80)]
+    public String Rank { get; set; }
+
+    [Required]
+    [StringLength(80)]
+    public String Name { get; set; }
+
+    [StringLength(80)]
+    public String NameDe { get; set; }
 }
 
 //public class WpProcessedLocationClade
@@ -167,13 +192,16 @@ public class ApplicationDb : DbContext
         modelBuilder.UseCollation("Latin1_General_100_CI_AS_SC_UTF8");
 
         modelBuilder.Entity<WikiPage>()
-            .HasIndex(e => e.Step);
+            .HasIndex(e => new { e.Step, e.Type });
 
         modelBuilder.Entity<WikiPageContent>()
             .HasOne(e => e.Page)
             .WithOne(e => e.Content)
             .HasForeignKey<WikiPageContent>(e => e.Title)
             ;
+        modelBuilder.Entity<WikiPageContent>()
+            .Property(e => e.Text)
+            .HasColumnType("nvarchar(max)");
 
         modelBuilder.Entity<ParsingResult>()
             .HasOne(e => e.Page)
@@ -189,7 +217,28 @@ public class ApplicationDb : DbContext
             .WithMany(e => e.TaxoboxEntries)
             ;
 
-        //SetUnicode(modelBuilder);
+        modelBuilder.Entity<TaxonomyEntry>()
+            .HasKey(e => new { e.Title, e.No })
+            ;
+        modelBuilder.Entity<TaxonomyEntry>()
+            .HasOne(e => e.ParsedPage)
+            .WithMany(e => e.TaxonomyEntries)
+            ;
+        modelBuilder.Entity<TaxonomyEntry>()
+            .HasIndex(e => new { e.Rank, e.Title })
+            .IncludeProperties(e => new { e.Name, e.NameDe })
+            ;
+        modelBuilder.Entity<TaxonomyEntry>()
+            .HasIndex(e => new { e.Name, e.Rank, e.Title })
+            .IncludeProperties(e => new { e.NameDe })
+            ;
+        modelBuilder.Entity<TaxonomyEntry>()
+            .HasIndex(e => new { e.NameDe, e.Rank, e.Title })
+            .IncludeProperties(e => new { e.Name })
+            .IsUnique()
+            ;
+
+        SetUnicode(modelBuilder);
         SetCascades(modelBuilder);
     }
 

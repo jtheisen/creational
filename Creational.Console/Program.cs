@@ -5,7 +5,7 @@ using NLog;
 
 IServiceProvider serviceProvider;
 {
-    var connectionString = @"Server=.\;Database=creational;integrated security=true";
+    var connectionString = @"Server=.\;Database=creational-utf8;integrated security=true";
     var services = new ServiceCollection();
     services.AddDbContextFactory<ApplicationDb>(o => o.UseSqlServer(connectionString));
     services.AddTransient<WikiDumpImporter>();
@@ -20,5 +20,5 @@ var importer = serviceProvider.GetRequiredService<WikiDumpImporter>();
 var processor = serviceProvider.GetRequiredService<WikiPageProcessor>();
 
 
-importer.Import(fileName, dryRun: true);
-//processor.ProcessAll();
+//importer.Import(fileName, dryRun: false);
+processor.ProcessAll();

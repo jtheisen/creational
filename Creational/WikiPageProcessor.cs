@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using NLog;
 
 namespace Creational;
@@ -66,10 +67,27 @@ public class WikiPageProcessor
         return (counts.GetValueOrDefault(Step.ToRead), counts.GetValueOrDefault(Step.ToParse), counts.GetValueOrDefault(Step.Finished));
     }
 
-    public Int32 ProcessBatch(ref Int32 errors)
+    public Int32 ProcessBatch(ref Int32 errors, Int32 batchSize = 10)
     {
-        var batchSize = 10;
+        try
+        {
+            return InnerProcessBatch(ref errors, batchSize);
+        }
+        catch (Exception)
+        {
+            var dummy = 0;
 
+            for (var i = 0; i < batchSize; i++)
+            {
+                InnerProcessBatch(ref dummy, 1, logEntry: true);
+            }
+
+            throw;
+        }
+    }
+
+    public Int32 InnerProcessBatch(ref Int32 errors, Int32 batchSize = 10, Boolean logEntry = false)
+    {
         var db = dbFactory.CreateDbContext();
 
         var transaction = db.Database.BeginTransaction();
@@ -77,7 +95,7 @@ public class WikiPageProcessor
         var batch = db.Pages
             .Include(p => p.Content)
             .Include(p => p.Parsed)
-            .Where(p => p.Step == Step.ToParse)
+            .Where(p => p.Step == Step.ToParse && p.Type == PageType.Content)
             .Take(batchSize)
             .ToArray()
             ;
@@ -105,14 +123,9 @@ public class WikiPageProcessor
                 Sha1 = page.Content.Sha1
             };
 
-            db.ParsingResults.Add(parsed);
-
             try
             {
-                var entries = taxoboxParser.GetEntries(text);
-
-                parsed.TaxoboxEntries = entries;
-                parsed.WithTaxobox = entries.Count > 0;
+                taxoboxParser.GetEntries(parsed, text);
             }
             catch (Exception ex)
             {
@@ -120,6 +133,15 @@ public class WikiPageProcessor
 
                 parsed.Exception = ex.Message;
             }
+
+            if (logEntry)
+            {
+                var json = JsonConvert.SerializeObject(parsed, Formatting.Indented);
+
+                log.Info($"About to save parsed entry:\n\n{json}");
+            }
+
+            db.ParsingResults.Add(parsed);
 
             page.Step = Step.Finished;
         }
