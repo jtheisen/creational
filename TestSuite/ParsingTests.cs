@@ -1,7 +1,9 @@
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
 namespace Creational;
 
 [TestClass]
-public class DewikifyTests
+public class ParsingTests
 {
     TaxoboxParser parser = new TaxoboxParser();
 
@@ -29,5 +31,26 @@ public class DewikifyTests
         var actual = parser.RemoveXmlComments(original);
 
         Assert.AreEqual(expected, actual);
+    }
+
+    [TestMethod]
+    [DataRow("{{Taxobox qwer}}", "dirt{{Taxobox qwer}}dirt}}")]
+    [DataRow("{{Taxobox foobar}}", "{{Taxobox foo<!-- \nsome xml comment\n -->bar}}")]
+    [DataRow("""
+        {{Taxobox
+        | x = Anguilla-anguilla 1.jpg
+        }}
+        """, """
+        dirt
+                {{Taxobox
+        | x = Anguilla-anguilla 1.jpg
+        }}
+        dirt        
+        """)]
+    public void TestTaxoboxes(String expected, String original)
+    {
+        var actual = parser.GetTaxobox(original);
+
+        Assert.AreEqual(expected.ReplaceLineEndings(), actual.ReplaceLineEndings());
     }
 }

@@ -28,7 +28,8 @@ public class RedirectParser
 public class TaxoboxParser
 {
     //Regex infoboxSimpleMatcher = new Regex(@"^{{Taxobox.*");
-    Regex regexTaxobox = new Regex(@"^{{Taxobox\n(\|\s*(\w+)\s*=\s*([^\n]+)\n)*}}", RegexOptions.Multiline, TimeSpan.FromMilliseconds(100));
+    Regex regexTaxoboxWithEntries = new Regex(@"^{{Taxobox\n(\|\s*(\w+)\s*=\s*([^\n]+)\n)*}}", RegexOptions.Multiline, TimeSpan.FromMilliseconds(100));
+    Regex regexTaxoboxSimple = new Regex(@"{{Taxobox.*?}}", RegexOptions.Singleline);
     Regex regexXmlComment = new Regex(@"<!--.*?-->", RegexOptions.Singleline);
     Regex regexDewikifiy = new Regex(@"(\[\[[^\]]*?([^\]|]*)\]\])");
 
@@ -44,13 +45,29 @@ public class TaxoboxParser
         return regexXmlComment.Replace(text, "");
     }
 
-    public void GetEntries(ParsingResult result, String text)
+    void Sanitize(ref String text)
     {
         text = text.ReplaceLineEndings("\n");
 
         text = RemoveXmlComments(text);
+    }
 
-        var matches = regexTaxobox.Match(text);
+    public String GetTaxobox(String text)
+    {
+        Sanitize(ref text);
+
+        var matches = regexTaxoboxSimple.Match(text);
+
+        if (!matches.Success) return null;
+
+        return matches.Groups[0].Value;
+    }
+
+    public void GetEntries(ParsingResult result, String text)
+    {
+        Sanitize(ref text);
+
+        var matches = regexTaxoboxWithEntries.Match(text);
 
         var groups = matches.Groups;
 

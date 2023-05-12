@@ -114,13 +114,35 @@ namespace Creational.Migrations
 
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Name", "Rank", "Title"), new[] { "NameDe" });
 
-                    b.HasIndex("NameDe", "Rank", "Title")
-                        .IsUnique()
-                        .HasFilter("[NameDe] IS NOT NULL AND [Rank] IS NOT NULL");
+                    b.HasIndex("NameDe", "Rank", "Title");
 
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("NameDe", "Rank", "Title"), new[] { "Name" });
 
                     b.ToTable("TaxonomyEntry");
+                });
+
+            modelBuilder.Entity("Creational.TaxonomyRelation", b =>
+                {
+                    b.Property<string>("Ancestor")
+                        .HasMaxLength(80)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<string>("Descendant")
+                        .HasMaxLength(80)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(80)");
+
+                    b.Property<int>("No")
+                        .HasColumnType("int");
+
+                    b.HasKey("Ancestor", "Descendant");
+
+                    b.HasIndex("Descendant", "Ancestor");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Descendant", "Ancestor"), new[] { "No" });
+
+                    b.ToTable("TaxonomyRelations");
                 });
 
             modelBuilder.Entity("Creational.WikiPage", b =>
@@ -189,6 +211,28 @@ namespace Creational.Migrations
                     b.ToTable("PageContents");
                 });
 
+            modelBuilder.Entity("Creational.WikiTaxobox", b =>
+                {
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Sha1")
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("Taxobox")
+                        .HasMaxLength(4000)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(4000)");
+
+                    b.HasKey("Title");
+
+                    b.ToTable("Taxoboxes");
+                });
+
             modelBuilder.Entity("Creational.ParsingResult", b =>
                 {
                     b.HasOne("Creational.WikiPage", "Page")
@@ -233,6 +277,17 @@ namespace Creational.Migrations
                     b.Navigation("Page");
                 });
 
+            modelBuilder.Entity("Creational.WikiTaxobox", b =>
+                {
+                    b.HasOne("Creational.WikiPage", "Page")
+                        .WithOne("Taxobox")
+                        .HasForeignKey("Creational.WikiTaxobox", "Title")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Page");
+                });
+
             modelBuilder.Entity("Creational.ParsingResult", b =>
                 {
                     b.Navigation("TaxoboxEntries");
@@ -245,6 +300,8 @@ namespace Creational.Migrations
                     b.Navigation("Content");
 
                     b.Navigation("Parsed");
+
+                    b.Navigation("Taxobox");
                 });
 #pragma warning restore 612, 618
         }

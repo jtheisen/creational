@@ -41,6 +41,8 @@ public class WikiPage
 
     public WikiPageContent Content { get; set; }
 
+    public WikiTaxobox Taxobox { get; set; }
+
     public ParsingResult Parsed { get; set; }
 
     public Step Step { get; set; }
@@ -68,6 +70,22 @@ public class WikiPageContent
 
     [StringLength(40)]
     public String Sha1 { get; set; }
+}
+
+public class WikiTaxobox
+{
+    [Key]
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    [CascadeDelete]
+    public WikiPage Page { get; set; }
+
+    [StringLength(40)]
+    public String Sha1 { get; set; }
+
+    [StringLength(4000)]
+    public String Taxobox { get; set; }
 }
 
 public class ParsingResult
@@ -133,6 +151,17 @@ public class TaxonomyEntry
     public String NameDe { get; set; }
 }
 
+public class TaxonomyRelation
+{
+    [StringLength(80)]
+    public String Ancestor { get; set; }
+
+    [StringLength(80)]
+    public String Descendant { get; set; }
+
+    public Int32 No { get; set; }
+}
+
 //public class WpProcessedLocationClade
 //{
 //    [StringLength(200)]
@@ -175,8 +204,11 @@ public class ApplicationDb : DbContext
 {
     public DbSet<WikiPage> Pages { get; set; }
     public DbSet<WikiPageContent> PageContents { get; set; }
+    public DbSet<WikiTaxobox> Taxoboxes { get; set; }
+
     public DbSet<ParsingResult> ParsingResults { get; set; }
     public DbSet<TaxoboxEntry> TaxoboxEntries { get; set; }
+    public DbSet<TaxonomyRelation> TaxonomyRelations { get; set; }
 
     //public DbSet<WpProcessedLocation> WpProcessedLocations { get; set; }
     //public DbSet<Creature> Creatures { get; set; }
@@ -201,7 +233,14 @@ public class ApplicationDb : DbContext
             ;
         modelBuilder.Entity<WikiPageContent>()
             .Property(e => e.Text)
-            .HasColumnType("nvarchar(max)");
+            .HasColumnType("nvarchar(max)")
+            ;
+
+        modelBuilder.Entity<WikiTaxobox>()
+            .HasOne(e => e.Page)
+            .WithOne(e => e.Taxobox)
+            .HasForeignKey<WikiTaxobox>(e => e.Title)
+            ;
 
         modelBuilder.Entity<ParsingResult>()
             .HasOne(e => e.Page)
@@ -235,7 +274,14 @@ public class ApplicationDb : DbContext
         modelBuilder.Entity<TaxonomyEntry>()
             .HasIndex(e => new { e.NameDe, e.Rank, e.Title })
             .IncludeProperties(e => new { e.Name })
-            .IsUnique()
+            ;
+
+        modelBuilder.Entity<TaxonomyRelation>()
+            .HasKey(e => new { e.Ancestor, e.Descendant })
+            ;
+        modelBuilder.Entity<TaxonomyRelation>()
+            .HasIndex(e => new { e.Descendant, e.Ancestor })
+            .IncludeProperties(e => new { e.No })
             ;
 
         SetUnicode(modelBuilder);
