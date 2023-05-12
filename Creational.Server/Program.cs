@@ -1,5 +1,4 @@
 using Creational;
-using Creational.Server.Data;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +11,6 @@ var services = builder.Services;
 // Add services to the container.
 services.AddRazorPages();
 services.AddServerSideBlazor();
-services.AddSingleton<WeatherForecastService>();
 
 var configuration = builder.Configuration;
 

@@ -10,11 +10,27 @@ public class CascadeDeleteAttribute : Attribute
 {
 }
 
+public enum Step
+{
+    ToRead,
+    ToParse,
+    Finished
+}
+
+public enum PageType
+{
+    Ignored = 0,
+    Content = 1,
+    Redirect = 2
+}
+
 public class WikiPage
 {
     [Key]
     [StringLength(200)]
     public String Title { get; set; }
+
+    public PageType Type { get; set; }
 
     public Int32 Ns { get; set; }
 
@@ -24,6 +40,10 @@ public class WikiPage
     public String Issue { get; set; }
 
     public WikiPageContent Content { get; set; }
+
+    public ParsingResult Parsed { get; set; }
+
+    public Step Step { get; set; }
 }
 
 public class WikiPageContent
@@ -35,7 +55,9 @@ public class WikiPageContent
     [CascadeDelete]
     public WikiPage Page { get; set; }
 
-    [Required]
+    [StringLength(200)]
+    public String RedirectTitle { get; set; }
+
     public String Text { get; set; }
 
     [StringLength(200)]
@@ -46,6 +68,44 @@ public class WikiPageContent
 
     [StringLength(40)]
     public String Sha1 { get; set; }
+}
+
+public class ParsingResult
+{
+    [Key]
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    [CascadeDelete]
+    public WikiPage Page { get; set; }
+
+    [StringLength(40)]
+    public String Sha1 { get; set; }
+
+    [StringLength(200)]
+    public String Redirection { get; set; }
+
+    [StringLength(1000)]
+    public String Exception { get; set; }
+
+    public Boolean WithTaxobox { get; set; }
+
+    public ICollection<TaxoboxEntry> TaxoboxEntries { get; set; }
+}
+
+public class TaxoboxEntry
+{
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    [CascadeDelete]
+    public ParsingResult ParsedPage { get; set; }
+
+    [StringLength(60)]
+    public String Key { get; set; }
+
+    [StringLength(200)]
+    public String Value { get; set; }
 }
 
 //public class WpProcessedLocationClade
@@ -90,6 +150,9 @@ public class ApplicationDb : DbContext
 {
     public DbSet<WikiPage> Pages { get; set; }
     public DbSet<WikiPageContent> PageContents { get; set; }
+    public DbSet<ParsingResult> ParsingResults { get; set; }
+    public DbSet<TaxoboxEntry> TaxoboxEntries { get; set; }
+
     //public DbSet<WpProcessedLocation> WpProcessedLocations { get; set; }
     //public DbSet<Creature> Creatures { get; set; }
     //public DbSet<CreatureImage> Images { get; set; }
@@ -103,10 +166,27 @@ public class ApplicationDb : DbContext
     {
         modelBuilder.UseCollation("Latin1_General_100_CI_AS_SC_UTF8");
 
+        modelBuilder.Entity<WikiPage>()
+            .HasIndex(e => e.Step);
+
         modelBuilder.Entity<WikiPageContent>()
             .HasOne(e => e.Page)
             .WithOne(e => e.Content)
             .HasForeignKey<WikiPageContent>(e => e.Title)
+            ;
+
+        modelBuilder.Entity<ParsingResult>()
+            .HasOne(e => e.Page)
+            .WithOne(e => e.Parsed)
+            .HasForeignKey<ParsingResult>(e => e.Title)
+            ;
+
+        modelBuilder.Entity<TaxoboxEntry>()
+            .HasKey(e => new { e.Title, e.Key })
+            ;
+        modelBuilder.Entity<TaxoboxEntry>()
+            .HasOne(e => e.ParsedPage)
+            .WithMany(e => e.TaxoboxEntries)
             ;
 
         //SetUnicode(modelBuilder);

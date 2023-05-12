@@ -1,0 +1,6 @@
+﻿Update-Database -Project Creational
+Add-Migration -Project Creational -Name 
+Remove-Migration -Project Creational
+Drop-Database -Project Creational
+
+
