@@ -64,7 +64,7 @@ public class WikiPageProcessor
 
         var counts = query.ToDictionary(k => k.Step, k => k.Count);
 
-        return (counts.GetValueOrDefault(Step.ToRead), counts.GetValueOrDefault(Step.ToParse), counts.GetValueOrDefault(Step.Finished));
+        return (counts.GetValueOrDefault(Step.ToRead), counts.GetValueOrDefault(Step.ToExtractTaxobox), counts.GetValueOrDefault(Step.Finished));
     }
 
     public Int32 ProcessBatch(ref Int32 errors, Int32 batchSize = 10)
@@ -95,7 +95,7 @@ public class WikiPageProcessor
         var batch = db.Pages
             .Include(p => p.Content)
             .Include(p => p.Parsed)
-            .Where(p => p.Step == Step.ToParse && p.Type == PageType.Content)
+            .Where(p => p.Step == Step.ToExtractTaxobox && p.Type == PageType.Content)
             .Take(batchSize)
             .ToArray()
             ;

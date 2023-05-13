@@ -13,7 +13,7 @@ public class CascadeDeleteAttribute : Attribute
 public enum Step
 {
     ToRead,
-    ToParse,
+    ToExtractTaxobox,
     Finished
 }
 

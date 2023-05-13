@@ -29,7 +29,8 @@ public class TaxoboxParser
 {
     //Regex infoboxSimpleMatcher = new Regex(@"^{{Taxobox.*");
     Regex regexTaxoboxWithEntries = new Regex(@"^{{Taxobox\n(\|\s*(\w+)\s*=\s*([^\n]+)\n)*}}", RegexOptions.Multiline, TimeSpan.FromMilliseconds(100));
-    Regex regexTaxoboxSimple = new Regex(@"{{Taxobox.*?}}", RegexOptions.Singleline);
+    Regex regexTaxoboxSimple = new Regex(@"{{Taxobox.*?\n}}", RegexOptions.Singleline);
+    Regex regexTaxoboxOpener = new Regex(@"{{[ ]*taxobox\b");
     Regex regexXmlComment = new Regex(@"<!--.*?-->", RegexOptions.Singleline);
     Regex regexDewikifiy = new Regex(@"(\[\[[^\]]*?([^\]|]*)\]\])");
 
@@ -52,7 +53,7 @@ public class TaxoboxParser
         text = RemoveXmlComments(text);
     }
 
-    public String GetTaxobox(String text)
+    public String GetTaxoboxWithRegex(String text)
     {
         Sanitize(ref text);
 
@@ -63,24 +64,63 @@ public class TaxoboxParser
         return matches.Groups[0].Value;
     }
 
+    public String GetTaxobox(String text)
+    {
+        Sanitize(ref text);
+
+        var startI = text.IndexOf("{{Taxobox");
+
+        if (startI < 0)
+        {
+            var match = regexTaxoboxOpener.Match(text);
+
+            if (!match.Success) return null;
+
+            throw new Exception($"Taxobox head not found");
+        }
+
+        var p = startI + 2;
+
+        var length = text.Length;
+
+        var level = 1;
+
+        while (level > 0)
+        {
+            var openI = text.IndexOf("{{", p);
+            var closeI = text.IndexOf("}}", p);
+
+            if (closeI < 0) throw new Exception("Taxobox ending missing");
+
+            if (openI < 0 || openI > closeI)
+            {
+                --level;
+
+                p = closeI + 2;
+            }
+            else
+            {
+                ++level;
+
+                p = openI + 2;
+            }
+        }
+
+        return text.Substring(startI, p - startI);
+    }
+
+
     public void GetEntries(ParsingResult result, String text)
     {
         Sanitize(ref text);
 
-        var matches = regexTaxoboxWithEntries.Match(text);
-
-        var groups = matches.Groups;
-
-        var keys = groups[2].Captures;
-        var values = groups[3].Captures;
+        var lines = ParseLines(text).ToArray();
 
         var taxoboxEntries = new List<TaxoboxEntry>();
 
-        for (var i = 0; i < keys.Count; ++i)
+        foreach (var line in lines)
         {
-            var key = keys[i].Value;
-            var value = values[i].Value;
-            taxoboxEntries.Add(new TaxoboxEntry { Key = key, Value = value.Truncate(80) });
+            taxoboxEntries.Add(new TaxoboxEntry { Key = line.key, Value = line.value.Truncate(80) });
         }
 
         var taxonomyEntries = new TaxonomyEntry[10];
@@ -108,6 +148,62 @@ public class TaxoboxParser
         result.WithTaxobox = taxoboxEntries.Count > 0;
         result.TaxoboxEntries = taxoboxEntries;
         result.TaxonomyEntries = taxonomyEntriesToWrite;
+    }
+
+    public String ParseEntriesForTesting(String text)
+    {
+        Sanitize(ref text);
+
+        text = text.Trim();
+
+        return String.Join("\n", ParseLines(text).Select(p => $"{p.key} = {p.value}"));
+    }
+
+    IEnumerable<(String key, String value)> ParseLines(String text)
+    {
+        var head = "{{Taxobox";
+
+        if (!text.StartsWith(head)) throw new Exception($"Expected text to start with {head}");
+
+        var p = head.Length;
+
+        var i = 0;
+
+        i = text.IndexOf('\n', p);
+        var firstPipeI = text.IndexOf('|');
+
+        if (firstPipeI > 0 && firstPipeI < i) throw new Exception("Found key on the Taxobox line which is unsupported");
+
+        while (true)
+        {
+            i = text.IndexOf('\n', p);
+
+            if (i < 0) yield break;
+
+            p = i + 1;
+
+            if (text[p] != '|') continue;
+
+            ++p;
+
+            i = text.IndexOf('=', p);
+
+            if (i < 0) throw new Exception($"Value is missing for key at {p}");
+
+            var key = text.Substring(p, i - p).Trim();
+
+            p = i + 1;
+
+            i = text.IndexOf('\n', p);
+
+            if (i < 0) throw new Exception("Taxobox ended mid-content");
+
+            var value = text.Substring(p, i - p).Trim();
+
+            yield return (key, value);
+
+            p = i;
+        }
     }
 
     void ParseAndFillTaxoEntry(TaxonomyEntry[] taxonomyEntries, TaxoboxEntry taxoboxEntry, out Boolean haveTruncationIssue)
