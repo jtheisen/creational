@@ -28,7 +28,7 @@ var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 
 //importer.Import(fileName, dryRun: false);
 //processor.ProcessAll();
-leanProcessor.ProcessAll();
-analyzer.Analyze(resetPagesInError: true);
+//leanProcessor.ProcessAll();
+analyzer.Analyze(resetPagesInError: false);
 
 log.Info("done");
