@@ -14,7 +14,10 @@ public enum Step
 {
     ToRead,
     ToExtractTaxobox,
-    Finished
+    ToParseTaxobox,
+    Finished,
+    
+    Failed = -1
 }
 
 public enum PageType

@@ -60,7 +60,7 @@ public class TaxoboxSpaceAnalyzer
         }
     }
 
-    public void Analyze(Boolean resetPagesInError = false)
+    public void Analyze()
     {
         var db = dbContextFactory.CreateDbContext();
 
@@ -77,55 +77,12 @@ public class TaxoboxSpaceAnalyzer
         log.Info("Redirections loaded");
 
         var pages = db.Pages
-            .Include(p => p.Taxobox)
+            .Include(p => p.Parsed)
+            .ThenInclude(p => p.TaxonomyEntries)
             .Where(p => p.Type == PageType.Content)
             .ToArray();
 
-        log.Info("Taxoboxes loaded");
-
-        var parsingErrors = 0;
-
-        var parsingResults = (
-            from p in pages
-            select ParseTaxobox(p, ref parsingErrors)
-        ).ToArray();
-
-        var parsingErrorReport = String.Join("\n ",
-            from r in parsingResults
-            group r by r.Exception into g
-            select $"{g.Count():d}: {g.Key ?? "(fine)"}, eg. '{g.First().Title}'"
-        );
-
-        log.Info($"Taxoboxes parsed ({parsingErrors} parsing errors):\n\n {parsingErrorReport}\n");
-
-        if (resetPagesInError)
-        {
-            var hadError = false;
-
-            foreach (var result in parsingResults)
-            {
-                if (result.Exception == null) continue;
-
-                hadError = true;
-
-                result.Page.Step = Step.ToExtractTaxobox;
-            }
-
-            db.SaveChanges();
-
-            if (hadError) log.Info("Respective pages marked to have taxoboxes reextracted");
-        }
-
-        //var taxonomyEntries = (
-        //    from result in parsingResults
-        //    where result.TaxonomyEntries is not null
-        //    from e in result.TaxonomyEntries
-        //    select e
-        //).ToArray();
-
-        //var taxonomyEntriesByTitle = taxonomyEntries.ToLookup(e => e.Title, e => e);
-        //var taxonomyEntriesByName = taxonomyEntries.ToLookup(e => e.Name, e => e);
-        //var taxonomyEntriesByNamDe = taxonomyEntries.ToLookup(e => e.NameDe, e => e);
+        log.Info("Taxonomy loaded");
 
         var pageInfosByTitle = new Dictionary<String, PageInfo>();
         var pagesBySomeName = new Dictionary<String, PageInfo>();
@@ -273,44 +230,5 @@ public class TaxoboxSpaceAnalyzer
         );
 
         log.Info($"Root ancestor report:\n\n {rootAncestorReport}\n\n");
-    }
-
-    ParsingResult ParseTaxobox(WikiPage page, ref Int32 parsingErrors)
-    {
-        var result = new ParsingResult();
-
-        result.Title = page.Title;
-        result.Page = page;
-
-        page.Parsed = result;
-
-        if (page.Taxobox == null)
-        {
-            result.Exception = "no taxobox row";
-
-            return result;
-        }
-
-        var taxobox = page.Taxobox.Taxobox;
-
-        if (taxobox == null)
-        {
-            result.Exception = "no taxobox content";
-
-            return result;
-        }
-
-        try
-        {
-            taxoboxParser.GetEntries(result, taxobox);
-        }
-        catch (Exception ex)
-        {
-            result.Exception = ex.Message;
-
-            ++parsingErrors;
-        }
-
-        return result;
     }
 }
