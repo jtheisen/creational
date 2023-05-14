@@ -140,7 +140,7 @@ public class TaxoboxParser
 
         foreach (var te in taxonomyEntries)
         {
-            if (te?.Name is null) continue;
+            if (te?.Name is null && te?.NameDe is null) continue;
 
             taxonomyEntriesToWrite.Add(te);
         }

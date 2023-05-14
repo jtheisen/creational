@@ -1,12 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using NLog;
-using NLog.Fluent;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static Creational.TaxoboxParser;
+using System.Data;
+using System.Diagnostics;
 
 namespace Creational;
 
@@ -31,6 +27,8 @@ public class TaxoboxSpaceAnalyzer
         public String Name { get; set; }
 
         public PageInfo Ancestor { get; set; }
+
+        public Int32 AncestorEntryNo { get; set; }
 
         public PageInfo RootAncestor { get; set; }
 
@@ -76,11 +74,16 @@ public class TaxoboxSpaceAnalyzer
 
         log.Info("Redirections loaded");
 
-        var pages = db.Pages
+        var pageQuery = db.Pages
+            .Where(p => p.Type == PageType.Content);
+
+        var pages = pageQuery
             .Include(p => p.Parsed)
-            .ThenInclude(p => p.TaxonomyEntries)
-            .Where(p => p.Type == PageType.Content)
+                .ThenInclude(p => p.TaxonomyEntries)
             .ToArray();
+
+        //pageQuery.Include(p => p.Taxobox).ToArray();
+        //pageQuery.Include(p => p.Parsed).ThenInclude(p => p.TaxoboxEntries).ToArray();
 
         log.Info("Taxonomy loaded");
 
@@ -152,7 +155,10 @@ public class TaxoboxSpaceAnalyzer
 
         foreach (var pageInfo in pageInfosByTitle.Values)
         {
-            var ancestors = pageInfo.Result?.TaxonomyEntries?.Where(e => e.No > 1).Reverse();
+            var ancestors = pageInfo.Result?.TaxonomyEntries
+                ?.Where(e => e.No > 1)
+                .OrderBy(e => e.No)
+                .ToArray();
 
             if (ancestors is not null)
             {
@@ -170,6 +176,9 @@ public class TaxoboxSpaceAnalyzer
                         }
 
                         pageInfo.Ancestor = ancestor;
+                        pageInfo.AncestorEntryNo = entry.No;
+
+                        break;
                     }
                 }
 
@@ -180,13 +189,13 @@ public class TaxoboxSpaceAnalyzer
             }
         }
 
-        PageInfo GetRootAncestor(PageInfo page)
+        PageInfo GetRootAncestor(PageInfo pageInfo)
         {
-            if (page.RootAncestor is not null) return page.RootAncestor;
+            if (pageInfo.RootAncestor is not null) return pageInfo.RootAncestor;
 
-            if (page.Ancestor is null) return null;
+            if (pageInfo.Ancestor is null) return null;
 
-            return page.RootAncestor = GetRootAncestor(page.Ancestor) ?? page.Ancestor;
+            return pageInfo.RootAncestor = GetRootAncestor(pageInfo.Ancestor) ?? pageInfo.Ancestor;
         }
 
         foreach (var pageInfo in pageInfosByTitle.Values)
@@ -230,5 +239,46 @@ public class TaxoboxSpaceAnalyzer
         );
 
         log.Info($"Root ancestor report:\n\n {rootAncestorReport}\n\n");
+
+        var relations = new List<TaxonomyRelation>();
+
+        foreach (var pageInfo in pageInfosByTitle.Values)
+        {
+            if (pageInfo.Ancestor is null) continue;
+
+            relations.Add(new TaxonomyRelation
+            {
+                Descendant = pageInfo.Page.Title,
+                Ancestor = pageInfo.Ancestor.Page.Title,
+                No = pageInfo.AncestorEntryNo
+            });
+        }
+
+        var data = relations.ToDataTable();
+
+        log.Info("Relations fed into a data table, writing it out");
+
+        var connection = (SqlConnection)db.Database.GetDbConnection();
+
+        connection.Open();
+
+        using var transaction = connection.BeginTransaction();
+
+        using var command = connection.CreateCommand();
+
+        command.CommandText = $"delete from {nameof(ApplicationDb.TaxonomyRelations)}";
+        command.Transaction = transaction;
+        command.ExecuteNonQuery();
+
+        using var bulkCopy = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction);
+
+        bulkCopy.DestinationTableName = nameof(ApplicationDb.TaxonomyRelations);
+        
+
+        bulkCopy.WriteToServer(data);
+
+        transaction.Commit();
+
+        log.Info("Relations written");
     }
 }

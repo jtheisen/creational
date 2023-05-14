@@ -12,9 +12,9 @@ public class CascadeDeleteAttribute : Attribute
 
 public enum Step
 {
-    ToRead,
-    ToExtractTaxobox,
-    ToParseTaxobox,
+    ToRead = 0,
+    ToExtractTaxobox = 1,
+    ToParseTaxobox = 2,
     Finished,
     
     Failed = -1
@@ -146,7 +146,6 @@ public class TaxonomyEntry
     [StringLength(80)]
     public String Rank { get; set; }
 
-    [Required]
     [StringLength(80)]
     public String Name { get; set; }
 
@@ -156,11 +155,15 @@ public class TaxonomyEntry
 
 public class TaxonomyRelation
 {
-    [StringLength(80)]
+    [StringLength(200)]
     public String Ancestor { get; set; }
 
-    [StringLength(80)]
+    public WikiPage AncestorPage { get; set; }
+
+    [StringLength(200)]
     public String Descendant { get; set; }
+
+    public WikiPage DescendantPage { get; set; }
 
     public Int32 No { get; set; }
 }
@@ -285,6 +288,16 @@ public class ApplicationDb : DbContext
         modelBuilder.Entity<TaxonomyRelation>()
             .HasIndex(e => new { e.Descendant, e.Ancestor })
             .IncludeProperties(e => new { e.No })
+            ;
+        modelBuilder.Entity<TaxonomyRelation>()
+            .HasOne(e => e.AncestorPage)
+            .WithMany()
+            .HasForeignKey(e => e.Ancestor)
+            ;
+        modelBuilder.Entity<TaxonomyRelation>()
+            .HasOne(e => e.DescendantPage)
+            .WithMany()
+            .HasForeignKey(e => e.Descendant)
             ;
 
         SetUnicode(modelBuilder);

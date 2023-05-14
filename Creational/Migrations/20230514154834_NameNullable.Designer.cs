@@ -4,6 +4,7 @@ using Creational;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Creational.Migrations
 {
     [DbContext(typeof(ApplicationDb))]
-    partial class ApplicationDbModelSnapshot : ModelSnapshot
+    [Migration("20230514154834_NameNullable")]
+    partial class NameNullable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -123,14 +125,14 @@ namespace Creational.Migrations
             modelBuilder.Entity("Creational.TaxonomyRelation", b =>
                 {
                     b.Property<string>("Ancestor")
-                        .HasMaxLength(200)
+                        .HasMaxLength(80)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("varchar(80)");
 
                     b.Property<string>("Descendant")
-                        .HasMaxLength(200)
+                        .HasMaxLength(80)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("varchar(80)");
 
                     b.Property<int>("No")
                         .HasColumnType("int");
@@ -263,25 +265,6 @@ namespace Creational.Migrations
                         .IsRequired();
 
                     b.Navigation("ParsedPage");
-                });
-
-            modelBuilder.Entity("Creational.TaxonomyRelation", b =>
-                {
-                    b.HasOne("Creational.WikiPage", "AncestorPage")
-                        .WithMany()
-                        .HasForeignKey("Ancestor")
-                        .OnDelete(DeleteBehavior.ClientCascade)
-                        .IsRequired();
-
-                    b.HasOne("Creational.WikiPage", "DescendantPage")
-                        .WithMany()
-                        .HasForeignKey("Descendant")
-                        .OnDelete(DeleteBehavior.ClientCascade)
-                        .IsRequired();
-
-                    b.Navigation("AncestorPage");
-
-                    b.Navigation("DescendantPage");
                 });
 
             modelBuilder.Entity("Creational.WikiPageContent", b =>
