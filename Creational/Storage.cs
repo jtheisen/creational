@@ -13,7 +13,7 @@ public class CascadeDeleteAttribute : Attribute
 public enum Step
 {
     ToRead = 0,
-    ToExtractTaxobox = 1,
+    ToExtractContent = 1,
     ToParseTaxobox = 2,
     Finished,
     
@@ -46,9 +46,14 @@ public class WikiPage
 
     public WikiTaxobox Taxobox { get; set; }
 
+    public ICollection<WikiImageLink> ImageLinks { get; set; }
+
     public ParsingResult Parsed { get; set; }
 
     public Step Step { get; set; }
+
+    [StringLength(2000)]
+    public String StepError { get; set; }
 }
 
 public class WikiPageContent
@@ -73,6 +78,24 @@ public class WikiPageContent
 
     [StringLength(40)]
     public String Sha1 { get; set; }
+}
+
+public class WikiImageLink
+{
+    [Key]
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    public Int32 Position { get; set; }
+
+    [StringLength(2000)]
+    public String Filename { get; set; }
+
+    [StringLength(2000)]
+    public String Text { get; set; }
+
+    [CascadeDelete]
+    public WikiPage Page { get; set; }
 }
 
 public class WikiTaxobox
@@ -210,6 +233,7 @@ public class ApplicationDb : DbContext
 {
     public DbSet<WikiPage> Pages { get; set; }
     public DbSet<WikiPageContent> PageContents { get; set; }
+    public DbSet<WikiImageLink> ImageLinks { get; set; }
     public DbSet<WikiTaxobox> Taxoboxes { get; set; }
 
     public DbSet<ParsingResult> ParsingResults { get; set; }
@@ -240,6 +264,14 @@ public class ApplicationDb : DbContext
         modelBuilder.Entity<WikiPageContent>()
             .Property(e => e.Text)
             .HasColumnType("nvarchar(max)")
+            ;
+
+        modelBuilder.Entity<WikiImageLink>()
+            .HasKey(e => new { e.Title, e.Position })
+            ;
+        modelBuilder.Entity<WikiImageLink>()
+            .HasOne(e => e.Page)
+            .WithMany(e => e.ImageLinks)
             ;
 
         modelBuilder.Entity<WikiTaxobox>()

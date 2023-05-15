@@ -29,6 +29,7 @@ public class TaxoboxParser
 {
     //Regex infoboxSimpleMatcher = new Regex(@"^{{Taxobox.*");
     Regex regexTaxoboxWithEntries = new Regex(@"^{{Taxobox\n(\|\s*(\w+)\s*=\s*([^\n]+)\n)*}}", RegexOptions.Multiline, TimeSpan.FromMilliseconds(100));
+    Regex regexImageStart = new Regex(@"\[\[(?:File|Datei):(.*?)(\||]])");
     Regex regexTaxoboxSimple = new Regex(@"{{Taxobox.*?\n}}", RegexOptions.Singleline);
     Regex regexTaxoboxOpener = new Regex(@"{{[ ]*taxobox\b");
     Regex regexXmlComment = new Regex(@"<!--.*?-->", RegexOptions.Singleline);
@@ -301,7 +302,35 @@ public class TaxoboxParser
         return true;
     }
 
-    
+    public record ImageLink(String fileName, Int32 position, String wikiText);
+
+    public String FindImageLinksForTesting(String text)
+    {
+        var links = FindImageLinks(text);
+
+        return String.Join("\n", links.Select(l => l.fileName));
+    }
+
+    public IEnumerable<ImageLink> FindImageLinks(String text)
+    {
+        var matches = regexImageStart.Matches(text);
+
+        var images = new List<ImageLink>();
+
+        foreach (Match match in matches)
+        {
+            if (!match.Success) throw new Exception();
+
+            var group = match.Groups[1];
+
+            var fileName = group.Value;
+            var position = group.Index;
+
+            images.Add(new ImageLink(fileName.Trim(), position, null));
+        }
+
+        return images;
+    }
 
     //public List<TaxoboxEntry> GetEntries(String text)
     //{

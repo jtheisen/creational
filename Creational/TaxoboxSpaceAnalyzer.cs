@@ -2,7 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using NLog;
 using System.Data;
-using System.Diagnostics;
 
 namespace Creational;
 
@@ -31,6 +30,8 @@ public class TaxoboxSpaceAnalyzer
         public Int32 AncestorEntryNo { get; set; }
 
         public PageInfo RootAncestor { get; set; }
+
+        public Int32 RootAncestorCalculationPhase { get; set; }
 
         public List<String> Names { get; } = new List<String>();
 
@@ -189,13 +190,44 @@ public class TaxoboxSpaceAnalyzer
             }
         }
 
+        var stack = new Stack<PageInfo>();
+
         PageInfo GetRootAncestor(PageInfo pageInfo)
         {
-            if (pageInfo.RootAncestor is not null) return pageInfo.RootAncestor;
+            if (pageInfo.RootAncestorCalculationPhase == 2) return pageInfo.RootAncestor;
 
             if (pageInfo.Ancestor is null) return null;
 
-            return pageInfo.RootAncestor = GetRootAncestor(pageInfo.Ancestor) ?? pageInfo.Ancestor;
+            if (pageInfo.RootAncestorCalculationPhase == 1)
+            {
+                var stackText = String.Join(" > ", stack.Select(p => p.Page.Title));
+
+                pageInfo.AddIssue("cycle in hierarchy");
+
+                pageInfo.RootAncestorCalculationPhase = 2;
+            }
+            else
+            {
+
+                pageInfo.RootAncestorCalculationPhase = 1;
+
+                stack.Push(pageInfo);
+
+                try
+                {
+                    var parentRootAncestor = GetRootAncestor(pageInfo.Ancestor);
+
+                    pageInfo.RootAncestor = parentRootAncestor ?? pageInfo.Ancestor;
+                }
+                finally
+                {
+                    stack.Pop();
+                }
+            }
+
+            pageInfo.RootAncestorCalculationPhase = 2;
+
+            return pageInfo.RootAncestor;
         }
 
         foreach (var pageInfo in pageInfosByTitle.Values)
@@ -274,7 +306,6 @@ public class TaxoboxSpaceAnalyzer
 
         bulkCopy.DestinationTableName = nameof(ApplicationDb.TaxonomyRelations);
         
-
         bulkCopy.WriteToServer(data);
 
         transaction.Commit();

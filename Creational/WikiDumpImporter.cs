@@ -52,7 +52,7 @@ public class WikiDumpImporter
                 Title = title,
                 Id = element.Id,
                 Ns = element.Ns,
-                Step = Step.ToExtractTaxobox,
+                Step = Step.ToExtractContent,
                 Type = type,
                 Content = new WikiPageContent
                 {

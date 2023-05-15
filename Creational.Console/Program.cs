@@ -13,7 +13,7 @@ IServiceProvider serviceProvider;
     services.AddTransient<TaxoboxSpaceAnalyzer>();
     services.AddTransient<WikiDumpImporter>();
     services.AddTransient<WikiPageProcessor>();
-    services.AddTransient<TaxoboxExtractionWorker>();
+    services.AddTransient<ContentExtractionWorker>();
     services.AddTransient<TaxoboxParsingWorker>();
     serviceProvider = services.BuildServiceProvider();
 }
@@ -22,15 +22,14 @@ var fileName = @"c:\users\jens\downloads\dewiki-20230501-pages-articles.xml.bz2"
 
 var importer = serviceProvider.GetRequiredService<WikiDumpImporter>();
 
-var processor = serviceProvider.GetRequiredService<WikiPageProcessor>();
-var extractionWorker = serviceProvider.GetRequiredService<TaxoboxExtractionWorker>();
+var processor = serviceProvider.GetRequiredService<WikiPageProcessor>(); // no longer used
+var extractionWorker = serviceProvider.GetRequiredService<ContentExtractionWorker>();
 var parsingWorker = serviceProvider.GetRequiredService<TaxoboxParsingWorker>();
 
 var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 
 //importer.Import(fileName, dryRun: false);
-//processor.ProcessAll();
-//leanProcessor.ProcessAll();
+extractionWorker.ProcessAll();
 parsingWorker.ProcessAll();
 analyzer.Analyze();
 

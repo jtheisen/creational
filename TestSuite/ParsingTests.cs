@@ -173,4 +173,35 @@ public class ParsingTests
 
         Assert.AreEqual(expected.ReplaceLineEndings(), actual.ReplaceLineEndings());
     }
+
+
+    public static IEnumerable<Object[]> TestImageLinkParsingData
+    {
+        get
+        {
+            yield return new Object[]
+            {
+                """
+                Binturong in Overloon.jpg
+                Binturong2.jpg
+                """,
+                """
+                [[Datei:Binturong in Overloon.jpg|mini|Der [[Binturong]] zählt zu den Schleichkatzen]]
+
+                dirt [[Datei:Binturong2.jpg|mini|Der [[Binturong]]
+                zählt immer noch zu den Schleichkatzen]]
+                """
+            };
+        }
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(TestImageLinkParsingData))]
+    public void TestImageLinkParsing(String expected, String original)
+    {
+        var actual = parser.FindImageLinksForTesting(original);
+
+        Assert.AreEqual(expected.ReplaceLineEndings(), actual.ReplaceLineEndings());
+    }
+
 }
