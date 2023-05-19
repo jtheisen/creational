@@ -15,6 +15,7 @@ IServiceProvider serviceProvider;
     services.AddTransient<WikiPageProcessor>();
     services.AddTransient<ContentExtractionWorker>();
     services.AddTransient<TaxoboxParsingWorker>();
+    services.AddTransient<SiteArchiveWriter>();
     serviceProvider = services.BuildServiceProvider();
 }
 
@@ -25,12 +26,16 @@ var importer = serviceProvider.GetRequiredService<WikiDumpImporter>();
 var processor = serviceProvider.GetRequiredService<WikiPageProcessor>(); // no longer used
 var extractionWorker = serviceProvider.GetRequiredService<ContentExtractionWorker>();
 var parsingWorker = serviceProvider.GetRequiredService<TaxoboxParsingWorker>();
+var siteArchiveWriter = serviceProvider.GetRequiredService<SiteArchiveWriter>();
 
 var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 
 //importer.Import(fileName, dryRun: false);
+
 extractionWorker.ProcessAll();
 parsingWorker.ProcessAll();
-analyzer.Analyze();
+//analyzer.Analyze();
+
+siteArchiveWriter.WriteArchive(@"C:\Users\jens\Documents\Projects\creationaljs\src\site-archive-data.json", 100);
 
 log.Info("done");
