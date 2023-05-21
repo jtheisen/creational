@@ -15,8 +15,10 @@ public class SiteArchive
 
 public class SiteImage
 {
-    public String Filename { get; set; }
+    [JsonProperty("sigsegs")]
+    public String Sigsegs { get; set; }
 
+    [JsonProperty("pageIs")]
     public Int32[] PageIs { get; set; }
 }
 
@@ -72,9 +74,13 @@ public class SiteArchiveWriter
 
         var relations = db.TaxonomyRelations.ToArray();
 
-        var images = db.ImageLinks
-            .Where(i => i.Filename.EndsWith(".jpeg") || i.Filename.EndsWith(".jpg") || i.Filename.EndsWith(".png"))
-            .ToArray();
+        var images = (
+            from il in db.ImageLinks
+            where il.Filename.EndsWith(".jpeg") || il.Filename.EndsWith(".jpg") || il.Filename.EndsWith(".png")
+            join ri in db.ResolvedImages on il.Filename equals ri.Filename into resolved
+            from ri in resolved
+            select new { il.Title, ri.Uri }
+        ).ToArray();
 
         var rootPage = pages.FirstOrDefault(p => p.Title == "Lebewesen");
 
@@ -125,7 +131,7 @@ public class SiteArchiveWriter
 
                 if (latestChild is not null)
                 {
-                    latestChild.NextSiblingI = i;
+                    latestChild.NextSiblingI = i + 1;
                 }
 
                 return creature;
@@ -146,10 +152,12 @@ public class SiteArchiveWriter
 
         var siteImages = (
             from i in images
-            group i by i.Filename into image
+            let ss = ImageUrls.GetSignificantSegments(i.Uri)
+            where ss != null
+            group i by ss into image
             select new SiteImage
             {
-                Filename = image.Key,
+                Sigsegs = image.Key,
                 PageIs = image
                     .Select(i => siteCreatureIsByTitle.GetValueOrDefault(i.Title, -1))
                     .Where(i => i >= 0)

@@ -98,6 +98,17 @@ public class WikiImageLink
     public WikiPage Page { get; set; }
 }
 
+public class WikiResolvedImage
+{
+    [StringLength(2000)]
+    public String Filename { get; set; }
+
+    [StringLength(2000)]
+    public String Uri { get; set; }
+
+    public Int32 Status { get; set; }
+}
+
 public class WikiTaxobox
 {
     [Key]
@@ -234,6 +245,7 @@ public class ApplicationDb : DbContext
     public DbSet<WikiPage> Pages { get; set; }
     public DbSet<WikiPageContent> PageContents { get; set; }
     public DbSet<WikiImageLink> ImageLinks { get; set; }
+    public DbSet<WikiResolvedImage> ResolvedImages { get; set; }
     public DbSet<WikiTaxobox> Taxoboxes { get; set; }
 
     public DbSet<ParsingResult> ParsingResults { get; set; }
@@ -270,8 +282,20 @@ public class ApplicationDb : DbContext
             .HasKey(e => new { e.Title, e.Position })
             ;
         modelBuilder.Entity<WikiImageLink>()
+            .Property(e => e.Filename)
+            .UseCollation("Latin1_General_BIN2")
+            ;
+        modelBuilder.Entity<WikiImageLink>()
             .HasOne(e => e.Page)
             .WithMany(e => e.ImageLinks)
+            ;
+
+        modelBuilder.Entity<WikiResolvedImage>()
+            .HasKey(e => e.Filename)
+            ;
+        modelBuilder.Entity<WikiResolvedImage>()
+            .Property(e => e.Filename)
+            .UseCollation("Latin1_General_BIN2")
             ;
 
         modelBuilder.Entity<WikiTaxobox>()
