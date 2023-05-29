@@ -80,6 +80,16 @@ public class WikiPageContent
     public String Sha1 { get; set; }
 }
 
+public class WikiTaxoboxImage
+{
+    [Key]
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    [StringLength(2000)]
+    public String Filename { get; set; }
+}
+
 public class WikiImageLink
 {
     [Key]
@@ -107,6 +117,35 @@ public class WikiResolvedImage
     public String Uri { get; set; }
 
     public Int32 Status { get; set; }
+}
+
+public enum WikiImageDataKind
+{
+    Unknown = 0,
+    Thumbnail = 1
+}
+
+public class WikiImageData
+{
+    [StringLength(2000)]
+    public String Filename { get; set; }
+
+    public WikiImageDataKind Kind { get; set; }
+
+    [StringLength(2000)]
+    public String Uri { get; set; }
+
+    [StringLength(120)]
+    public String ContentType { get; set; }
+
+    public Int32 Width { get; set; }
+
+    public Int32 Height { get; set; }
+
+    [StringLength(60)]
+    public String Error { get; set; }
+
+    public Byte[] Data { get; set; }
 }
 
 public class WikiTaxobox
@@ -245,7 +284,9 @@ public class ApplicationDb : DbContext
     public DbSet<WikiPage> Pages { get; set; }
     public DbSet<WikiPageContent> PageContents { get; set; }
     public DbSet<WikiImageLink> ImageLinks { get; set; }
+    public DbSet<WikiTaxoboxImage> TaxoboxImages { get; set; }
     public DbSet<WikiResolvedImage> ResolvedImages { get; set; }
+    public DbSet<WikiImageData> ImageData { get; set; }
     public DbSet<WikiTaxobox> Taxoboxes { get; set; }
 
     public DbSet<ParsingResult> ParsingResults { get; set; }
@@ -278,6 +319,14 @@ public class ApplicationDb : DbContext
             .HasColumnType("nvarchar(max)")
             ;
 
+        modelBuilder.Entity<WikiTaxoboxImage>()
+            .HasKey(e => new { e.Title })
+            ;
+        modelBuilder.Entity<WikiTaxoboxImage>()
+            .Property(e => e.Filename)
+            .UseCollation("Latin1_General_BIN2")
+            ;
+
         modelBuilder.Entity<WikiImageLink>()
             .HasKey(e => new { e.Title, e.Position })
             ;
@@ -294,6 +343,14 @@ public class ApplicationDb : DbContext
             .HasKey(e => e.Filename)
             ;
         modelBuilder.Entity<WikiResolvedImage>()
+            .Property(e => e.Filename)
+            .UseCollation("Latin1_General_BIN2")
+            ;
+
+        modelBuilder.Entity<WikiImageData>()
+            .HasKey(e => new { e.Filename, e.Kind })
+            ;
+        modelBuilder.Entity<WikiImageData>()
             .Property(e => e.Filename)
             .UseCollation("Latin1_General_BIN2")
             ;

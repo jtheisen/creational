@@ -4,6 +4,7 @@ using Creational;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Creational.Migrations
 {
     [DbContext(typeof(ApplicationDb))]
-    partial class ApplicationDbModelSnapshot : ModelSnapshot
+    [Migration("20230529174010_Resolution")]
+    partial class Resolution
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -152,9 +154,6 @@ namespace Creational.Migrations
                         .HasColumnType("varchar(2000)")
                         .UseCollation("Latin1_General_BIN2");
 
-                    b.Property<int>("Kind")
-                        .HasColumnType("int");
-
                     b.Property<string>("ContentType")
                         .HasMaxLength(120)
                         .IsUnicode(false)
@@ -163,23 +162,16 @@ namespace Creational.Migrations
                     b.Property<byte[]>("Data")
                         .HasColumnType("varbinary(max)");
 
-                    b.Property<string>("Error")
-                        .HasMaxLength(60)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(60)");
-
                     b.Property<int>("Height")
                         .HasColumnType("int");
 
-                    b.Property<string>("Uri")
-                        .HasMaxLength(2000)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(2000)");
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
 
                     b.Property<int>("Width")
                         .HasColumnType("int");
 
-                    b.HasKey("Filename", "Kind");
+                    b.HasKey("Filename");
 
                     b.ToTable("ImageData");
                 });

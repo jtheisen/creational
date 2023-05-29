@@ -1,0 +1,30 @@
+﻿@page "/all-images"
+@inject IDbContextFactory<ApplicationDb> DbFactory
+
+@{
+    if (images is null) return;
+}
+
+<PageTitle>All images</PageTitle>
+
+<div class="all-images-grid">
+    @foreach (var image in images)
+    {
+        <img src="@image.GetThumbnailImageUrl()" />
+    }
+</div>
+
+@code {
+    WikiResolvedImage[] images;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var db = await DbFactory.CreateDbContextAsync();
+
+        var loadedImages = await db.ResolvedImages.Take(500).ToArrayAsync();
+
+        images = loadedImages.Where(i => i.GetThumbnailImageUrl() != null).ToArray();
+
+        StateHasChanged();
+    }
+}

@@ -9,7 +9,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Creational.Server", "Creati
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Creational.Console", "Creational.Console\Creational.Console.csproj", "{BC5DC040-970A-4273-9B98-26D45B68A900}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestSuite", "TestSuite\TestSuite.csproj", "{18B9914A-AB05-47AC-8B82-98E8E1E987E9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestSuite", "TestSuite\TestSuite.csproj", "{18B9914A-AB05-47AC-8B82-98E8E1E987E9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pipelines", "Pipelines\Pipelines.csproj", "{A925F69F-7835-4B13-A121-8653C5149D3A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{18B9914A-AB05-47AC-8B82-98E8E1E987E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{18B9914A-AB05-47AC-8B82-98E8E1E987E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{18B9914A-AB05-47AC-8B82-98E8E1E987E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A925F69F-7835-4B13-A121-8653C5149D3A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A925F69F-7835-4B13-A121-8653C5149D3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A925F69F-7835-4B13-A121-8653C5149D3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A925F69F-7835-4B13-A121-8653C5149D3A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

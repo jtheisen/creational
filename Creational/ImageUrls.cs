@@ -37,4 +37,11 @@ public static class ImageUrls
             return null;
         }
     }
+
+    public static String GetThumbnailImageUrl(this WikiResolvedImage image)
+    {
+        if (!TryParseWikiImageUrl(image.Uri, out var container, out var file)) return null;
+
+        return $"https://upload.wikimedia.org/wikipedia/commons/thumb/{container}/{file}/220px-{file}";
+    }
 }

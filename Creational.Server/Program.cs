@@ -18,7 +18,7 @@ var settings = configuration.Get<AppSettings>();
 
 services.Configure<AppSettings>(configuration);
 
-services.AddDbContext<ApplicationDb>(options =>
+services.AddDbContextFactory<ApplicationDb>(options =>
     options
         .UseSqlServer(settings.DbConnection),
     ServiceLifetime.Transient

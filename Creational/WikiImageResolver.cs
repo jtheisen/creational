@@ -17,19 +17,26 @@ public class WikiImageResolver
         this.dbFactory = dbFactory;
     }
 
+    IQueryable<String> GetImageQuery(ApplicationDb db) =>
+        db.ImageLinks.Select(i => i.Filename)
+        .Union(db.TaxoboxImages.Select(i => i.Filename))
+        .Distinct();
+
     public void ResolveAllImages()
     {
         var db = dbFactory.CreateDbContext();
 
-        var total = db.ImageLinks.Count();
+        var total = GetImageQuery(db).Count();
 
         var alreadyDone = (
-            from il in db.ImageLinks
-            join ri in db.ResolvedImages on il.Filename equals ri.Filename into resolved2
+            from il in GetImageQuery(db)
+            join ri in db.ResolvedImages on il equals ri.Filename into resolved2
             from ri in resolved2.DefaultIfEmpty()
             where ri != null
-            select il.Filename
-        ).Distinct().Count();
+            select il
+        ).Count();
+
+        LogManager.Flush();
 
         Int32 resolved = 0, written = 0;
 
@@ -86,13 +93,12 @@ public class WikiImageResolver
         var db = dbFactory.CreateDbContext();
 
         var pendingImages = (
-            from il in db.ImageLinks
-            join ri in db.ResolvedImages on il.Filename equals ri.Filename into resolved
+            from fn in GetImageQuery(db)
+            join ri in db.ResolvedImages on fn equals ri.Filename into resolved
             from ri in resolved.DefaultIfEmpty()
             where ri == null
-            select il.Filename
+            select fn
         )
-        .Distinct()
         .Take(batchSize)
         .ToArray();
 
@@ -109,8 +115,6 @@ public class WikiImageResolver
 
         return tasks.Length;
     }
-
-    //const String expectedPrefix = "https://upload.wikimedia.org/wikipedia/commons/";
 
     public async Task<Uri> ResolveImageUrl(ApplicationDb db, String fileName)
     {

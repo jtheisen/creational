@@ -27,6 +27,9 @@ public class SiteCreature
     [JsonProperty("title")]
     public String Title { get; set; }
 
+    [JsonProperty("imageSigsegs")]
+    public String ImageSigsegs { get; set; }
+
     [JsonProperty("parentI")]
     public Int32 ParentI { get; set; }
 
@@ -82,6 +85,13 @@ public class SiteArchiveWriter
             select new { il.Title, ri.Uri }
         ).ToArray();
 
+        var taxoboxImages = (
+            from ti in db.TaxoboxImages
+            join ri in db.ResolvedImages on ti.Filename equals ri.Filename into resolved
+            from ri in resolved
+            select new { ti.Title, ri.Uri }
+        ).ToDictionary(i => i.Title, i => i.Uri);
+
         var rootPage = pages.FirstOrDefault(p => p.Title == "Lebewesen");
 
         if (rootPage is null) throw new Exception("Can't find root page");
@@ -105,11 +115,18 @@ public class SiteArchiveWriter
 
                 var selfI = i;
 
+
                 var creature = creatures[selfI] = new SiteCreature
                 {
                     Title = page.Title,
                     ParentI = parentI,
+                    
                 };
+
+                if (taxoboxImages.TryGetValue(page.Title, out var image))
+                {
+                    creature.ImageSigsegs = ImageUrls.GetSignificantSegments(image);
+                }
 
                 SiteCreature latestChild = null;
 
