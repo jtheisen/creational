@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Creational;
@@ -20,6 +21,15 @@ public class SiteImage
 
     [JsonProperty("pageIs")]
     public Int32[] PageIs { get; set; }
+
+    [JsonProperty("taxo")]
+    public Boolean? IsTaxoboxImage { get; set; }
+
+    [JsonProperty("w")]
+    public Int32 Width { get; set; }
+
+    [JsonProperty("h")]
+    public Int32 Height { get; set; }
 }
 
 public class SiteCreature
@@ -27,8 +37,8 @@ public class SiteCreature
     [JsonProperty("title")]
     public String Title { get; set; }
 
-    [JsonProperty("imageSigsegs")]
-    public String ImageSigsegs { get; set; }
+    [JsonProperty("i")]
+    public Int32 I { get; set; }
 
     [JsonProperty("parentI")]
     public Int32 ParentI { get; set; }
@@ -77,20 +87,24 @@ public class SiteArchiveWriter
 
         var relations = db.TaxonomyRelations.ToArray();
 
-        var images = (
+        var wikiTextImages = (
             from il in db.ImageLinks
             where il.Filename.EndsWith(".jpeg") || il.Filename.EndsWith(".jpg") || il.Filename.EndsWith(".png")
             join ri in db.ResolvedImages on il.Filename equals ri.Filename into resolved
             from ri in resolved
-            select new { il.Title, ri.Uri }
+            select new { il.Title, ri.Uri, IsTaxoboxImage = false }
         ).ToArray();
 
         var taxoboxImages = (
             from ti in db.TaxoboxImages
             join ri in db.ResolvedImages on ti.Filename equals ri.Filename into resolved
             from ri in resolved
-            select new { ti.Title, ri.Uri }
-        ).ToDictionary(i => i.Title, i => i.Uri);
+            join di in db.ImageData on ti.Filename equals di.Filename into data
+            from di in data
+            select new { ti.Title, ri.Uri, di.Width, di.Height, IsTaxoboxImage = true }
+        ).ToArray();
+
+
 
         var rootPage = pages.FirstOrDefault(p => p.Title == "Lebewesen");
 
@@ -119,14 +133,9 @@ public class SiteArchiveWriter
                 var creature = creatures[selfI] = new SiteCreature
                 {
                     Title = page.Title,
+                    I = selfI,
                     ParentI = parentI,
-                    
                 };
-
-                if (taxoboxImages.TryGetValue(page.Title, out var image))
-                {
-                    creature.ImageSigsegs = ImageUrls.GetSignificantSegments(image);
-                }
 
                 SiteCreature latestChild = null;
 
@@ -168,17 +177,20 @@ public class SiteArchiveWriter
             .ToDictionary(p => p.c.Title, p => p.i);
 
         var siteImages = (
-            from i in images
+            from i in taxoboxImages
             let ss = ImageUrls.GetSignificantSegments(i.Uri)
             where ss != null
             group i by ss into image
             select new SiteImage
             {
+                IsTaxoboxImage = image.Any(i => i.IsTaxoboxImage),
                 Sigsegs = image.Key,
                 PageIs = image
                     .Select(i => siteCreatureIsByTitle.GetValueOrDefault(i.Title, -1))
                     .Where(i => i >= 0)
-                    .ToArray()
+                    .ToArray(),
+                Width = image.First().Width,
+                Height = image.First().Height
             }
         ).ToArray();
 

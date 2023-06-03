@@ -53,7 +53,7 @@ var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 
 //taxoboxImageCurator.Curate();
 //imageResolver.ResolveAllImages();
-imageDownloader.DownloadAllThumbs();
+//imageDownloader.DownloadAllThumbs();
 
 
 siteArchiveWriter.WriteArchive(@"C:\Users\jens\Documents\Projects\creationaljs\src\site-archive-data.json", 100);
