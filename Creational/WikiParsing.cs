@@ -148,19 +148,30 @@ public class WikiParser
         FlushText(i);
     }
 
+    static Char[] TemplateContentTerminationCharacter = { '|', '=', '}' };
+
     void ParseTemplate()
     {
         if (input.Substring(p, 2) != "{{") throw new Exception("Expected '{{'");
 
         var s = p;
 
-        var i = input.IndexOf('\n', p);
+        var i = input.IndexOfAny(TemplateContentTerminationCharacter, p);
 
-        if (i < 0) throw new Exception("No newline found on template opener");
+        if (i < 0) Throw("Expected to find a character to terminate template name", i);
 
-        receiver.OpenTemplate(new Range(p + 2, i));
+        switch (input[i])
+        {
+            case '=':
+                Throw("Template name can't be followed by '='", i);
+                break;
+            default:
+                break;
+        }
 
-        p = i + 1;
+        receiver.OpenTemplate(new Range(s + 2, i));
+
+        p = i;
 
         ParseTemplateLines();
 
@@ -170,8 +181,6 @@ public class WikiParser
 
         receiver.CloseTemplate(new Range(s, p));
     }
-
-    static Char[] TerminationCharacterAfterKey = { '|', '=', '}', '\n' };
 
     void ParseTemplateLines()
     {
@@ -202,30 +211,28 @@ public class WikiParser
                     break;
             }
 
-            var ei = input.IndexOfAny(TerminationCharacterAfterKey, i + 1);
+            var ei = input.IndexOfAny(TemplateContentTerminationCharacter, i + 1);
 
             if (ei < 0) Throw("Expected to find a character to terminate key", ei);
 
             receiver.AddKey(new Range(i + 1, ei));
 
-            p = ei + 1;
+            p = ei;
 
             switch (input[ei])
             {
                 case '|':
                     break;
                 case '}':
-                    if (input.Length <= p || input[p] != '}')
+                    if (input.Length <= p + 1 || input[p + 1] != '}')
                     {
                         Throw("Got '}' on inner template context, but it wasn't followed up by a second '}'", i);
                     }
 
                     break;
                 case '=':
+                    ++p;
                     ParseWikiString(stopAtPipe: true);
-                    break;
-                case '\n':
-                    Throw("Unexpected newline after key introduction", ei);
                     break;
             }
 

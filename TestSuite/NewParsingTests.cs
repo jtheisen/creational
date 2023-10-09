@@ -64,6 +64,7 @@ public class XmlParsingReceiver : WikiParsingReceiver
 public class NewParsingTests
 {
     [DataRow("""foo""", """foo""")]
+    [DataRow("""<lang><de /><foo /></lang>""", """{{lang|de|foo}}""")]
     [DataRow("""
         <Taxobox>
             <x>Anguilla-anguilla 1.jpg</x>
@@ -116,13 +117,13 @@ public class NewParsingTests
         <Taxobox>
             <Taxon_Name>Storchschnäbel</Taxon_Name>
             <Taxon2_Name>Storchschnabelgewächse</Taxon2_Name>
-            <Bildbeschreibung>(''<lang><la></la><Geranium pratense></Geranium pratense></lang>'')</Bildbeschreibung>
+            <Bildbeschreibung>(''<lang><la /><Geranium_pratense /></lang>'')</Bildbeschreibung>
         </Taxobox>
         """, """
         {{Taxobox
         | Taxon_Name       = Storchschnäbel
         | Taxon2_Name      = Storchschnabelgewächse
-        | Bildbeschreibung = (''{{lang|la|Geranium pratense}}'')
+        | Bildbeschreibung = (''{{lang|la|Geranium_pratense}}'')
         }}        }}
         """)]
     //[DataRow("""
