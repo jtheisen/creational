@@ -4,6 +4,7 @@ using Creational;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Creational.Migrations
 {
     [DbContext(typeof(ApplicationDb))]
-    partial class ApplicationDbModelSnapshot : ModelSnapshot
+    [Migration("20231006155926_Taxobox8000")]
+    partial class Taxobox8000
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -40,9 +42,6 @@ namespace Creational.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(1000)");
 
-                    b.Property<bool>("HasDuplicateTaxoboxEntries")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("HasTruncationIssue")
                         .HasColumnType("bit");
 
@@ -55,11 +54,6 @@ namespace Creational.Migrations
                         .HasMaxLength(40)
                         .IsUnicode(false)
                         .HasColumnType("varchar(40)");
-
-                    b.Property<string>("TemplateName")
-                        .HasMaxLength(60)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(60)");
 
                     b.Property<bool>("WithTaxobox")
                         .HasColumnType("bit");
@@ -278,8 +272,6 @@ namespace Creational.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Lang", "Title");
-
-                    b.HasIndex("Lang", "StepError");
 
                     b.HasIndex("Lang", "Step", "Type");
 

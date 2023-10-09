@@ -23,7 +23,7 @@ public class ContentExtractionWorker
         taxoboxParser = new TaxoboxParser();
     }
 
-    public void ProcessAll()
+    public void ProcessAll(String lang)
     {
         var db = dbFactory.CreateDbContext();
 
@@ -38,7 +38,7 @@ public class ContentExtractionWorker
 
         while (true)
         {
-            var b = ProcessBatch(ref errors);
+            var b = ProcessBatch(lang, ref errors);
 
             p += b;
 
@@ -55,11 +55,11 @@ public class ContentExtractionWorker
         }
     }
 
-    public Int32 ProcessBatch(ref Int32 errors, Int32 batchSize = 10)
+    public Int32 ProcessBatch(String lang, ref Int32 errors, Int32 batchSize = 10)
     {
         try
         {
-            return InnerProcessBatch(ref errors, batchSize);
+            return InnerProcessBatch(lang, ref errors, batchSize);
         }
         catch (Exception)
         {
@@ -67,14 +67,14 @@ public class ContentExtractionWorker
 
             for (var i = 0; i < batchSize; i++)
             {
-                InnerProcessBatch(ref dummy, 1, logEntry: true);
+                InnerProcessBatch(lang, ref dummy, 1, logEntry: true);
             }
 
             throw;
         }
     }
 
-    public Int32 InnerProcessBatch(ref Int32 errors, Int32 batchSize = 10, Boolean logEntry = false)
+    public Int32 InnerProcessBatch(String lang, ref Int32 errors, Int32 batchSize = 10, Boolean logEntry = false)
     {
         var db = dbFactory.CreateDbContext();
 
@@ -84,7 +84,10 @@ public class ContentExtractionWorker
             .Include(p => p.Content)
             .Include(p => p.Taxobox)
             .Include(p => p.ImageLinks)
-            .Where(p => p.Step == Step.ToExtractContent && p.Type == PageType.Content)
+            .Where(p => p.Lang == lang && p.Step == Step.ToExtractContent && p.Type == PageType.Content)
+            .OrderBy(p => p.Lang)
+            .ThenBy(p => p.Step)
+            .ThenBy(p => p.Type)
             .Take(batchSize)
             .ToArray()
             ;
@@ -134,11 +137,22 @@ public class ContentExtractionWorker
 
         var taxobox = new WikiTaxobox
         {
+            Lang = page.Lang,
             Title = page.Title,
             Sha1 = page.Content.Sha1
         };
 
-        taxobox.Taxobox = taxoboxParser.GetTaxobox(text);
+        taxobox.Taxobox = taxoboxParser.GetTaxoboxWithRegex(text);
+
+        if (taxobox.Taxobox is null)
+        {
+            throw new Exception("No taxobox found");
+        }
+
+        if (Encoding.UTF8.GetByteCount(taxobox.Taxobox) > 8000)
+        {
+            throw new Exception("Taxobox is too large");
+        }
 
         db.Taxoboxes.Add(taxobox);
     }
@@ -160,7 +174,7 @@ public class ContentExtractionWorker
                 throw new Exception("Suspiciously long filename, refusing to save");
             }
 
-            return new WikiImageLink { Title = page.Title, Position = l.position, Filename = l.fileName };
+            return new WikiImageLink { Lang = page.Lang, Title = page.Title, Position = l.position, Filename = l.fileName };
         }
 
         db.ImageLinks.AddRange(links.Select(MakeLink));

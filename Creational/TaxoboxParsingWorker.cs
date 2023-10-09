@@ -18,13 +18,13 @@ public class TaxoboxParsingWorker
         taxoboxParser = new TaxoboxParser();
     }
 
-    public void ProcessAll()
+    public void ProcessAll(String lang)
     {
         var db = dbFactory.CreateDbContext();
 
         var pages = db.Pages
             .Include(p => p.Taxobox)
-            .Where(p => p.Step == Step.ToParseTaxobox && p.Type == PageType.Content)
+            .Where(p => p.Lang == lang && p.Step == Step.ToParseTaxobox && p.Type == PageType.Content)
             .ToArray()
             ;
 
@@ -67,6 +67,7 @@ public class TaxoboxParsingWorker
 delete r
 from ParsingResults r
 join Pages p on r.Title = p.Title and p.Step = {Step.ToParseTaxobox} and p.Type = {PageType.Content}
+where r.Lang = {lang}
 ");
 
         log.Info("Saving steps");
@@ -89,6 +90,7 @@ join Pages p on r.Title = p.Title and p.Step = {Step.ToParseTaxobox} and p.Type 
     {
         var result = new ParsingResult();
 
+        result.Lang = page.Lang;
         result.Title = page.Title;
         result.Page = page;
 

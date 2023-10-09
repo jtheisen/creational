@@ -9,7 +9,7 @@ var log = LogManager.GetLogger("Program.cs");
 
 IServiceProvider serviceProvider;
 {
-    var connectionString = @"Server=.\;Database=creational-utf8;integrated security=true";
+    var connectionString = @"Server=.\;Database=creational;integrated security=true";
     var services = new ServiceCollection();
 
     services.AddLogging(logger => {
@@ -20,9 +20,13 @@ IServiceProvider serviceProvider;
     
     services.AddDbContextFactory<ApplicationDb>(o => o.UseSqlServer(connectionString));
     services.AddTransient<TaxoboxSpaceAnalyzer>();
+    
+    // Creates Page and PageContent from the import file
     services.AddTransient<WikiDumpImporter>();
-    services.AddTransient<WikiPageProcessor>();
+
+    // Extracts Taxobox (text) and ImageLink from the page contents
     services.AddTransient<ContentExtractionWorker>();
+
     services.AddTransient<TaxoboxParsingWorker>();
     services.AddTransient<TaxoboxImageCurator>();
     services.AddTransient<WikiImageResolver>();
@@ -31,11 +35,14 @@ IServiceProvider serviceProvider;
     serviceProvider = services.BuildServiceProvider();
 }
 
-var fileName = @"c:\users\jens\downloads\dewiki-20230501-pages-articles.xml.bz2";
+var deFileName = @"c:\users\jens\downloads\dewiki-20230501-pages-articles.xml.bz2";
+var enFileName = @"c:\users\jens\downloads\enwiki-20231001-pages-articles.xml.bz2";
+
+var lang = "en";
+var fileName = enFileName;
 
 var importer = serviceProvider.GetRequiredService<WikiDumpImporter>();
 
-var processor = serviceProvider.GetRequiredService<WikiPageProcessor>(); // no longer used
 var extractionWorker = serviceProvider.GetRequiredService<ContentExtractionWorker>();
 var parsingWorker = serviceProvider.GetRequiredService<TaxoboxParsingWorker>();
 var taxoboxImageCurator = serviceProvider.GetRequiredService<TaxoboxImageCurator>();
@@ -45,17 +52,17 @@ var siteArchiveWriter = serviceProvider.GetRequiredService<SiteArchiveWriter>();
 
 var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 
-//importer.Import(fileName, dryRun: false);
+//importer.Import(fileName, lang, dryRun: false);
 
-//extractionWorker.ProcessAll();
-//parsingWorker.ProcessAll();
-//analyzer.Analyze();
+//extractionWorker.ProcessAll(lang);
+parsingWorker.ProcessAll(lang);
+//analyzer.Analyze(lang);
 
 //taxoboxImageCurator.Curate();
 //imageResolver.ResolveAllImages();
 //imageDownloader.DownloadAllThumbs();
 
 
-siteArchiveWriter.WriteArchive(@"C:\Users\jens\Documents\Projects\creationaljs\src\site-archive-data.json", 100);
+//siteArchiveWriter.WriteArchive(@"C:\Users\jens\Documents\Projects\creationaljs\src\site-archive-data.json", 100);
 
 log.Info("done");

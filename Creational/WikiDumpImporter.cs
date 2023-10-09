@@ -21,7 +21,7 @@ public class WikiDumpImporter
         redirectParser = new RedirectParser();
     }
 
-    public void Import(String fileName, Boolean dryRun = false)
+    public void Import(String fileName, String lang, Boolean dryRun = false)
     {
         var fileLength = new FileInfo(fileName).Length;
 
@@ -37,7 +37,11 @@ public class WikiDumpImporter
             var rev = element.Revision;
             var text = rev.Text;
 
-            var haveTaxobox = text.Contains("taxobox", StringComparison.InvariantCultureIgnoreCase);
+            // also covers "automatic taxobox, subspeciesbox, etc.", but doesn't cover
+            // some others that may be interesting, such as "paraphyletic group" and "hybridbox".
+            var haveTaxobox =
+                text.Contains("taxobox", StringComparison.InvariantCultureIgnoreCase)
+                | text.Contains("speciesobox", StringComparison.InvariantCultureIgnoreCase);
 
             var isRedirect = redirectParser.IsRedirect(text, out var redirectTitle);
 
@@ -49,6 +53,7 @@ public class WikiDumpImporter
 
             return new WikiPage
             {
+                Lang = lang,
                 Title = title,
                 Id = element.Id,
                 Ns = element.Ns,

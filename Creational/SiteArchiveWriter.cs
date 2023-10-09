@@ -59,33 +59,33 @@ public class SiteArchiveWriter
         this.dbContextFactory = dbContextFactory;
     }
 
-    public Byte[] MakeArchive(Int32? limit = null)
+    public Byte[] MakeArchive(String lang, Int32? limit = null)
     {
         var ms = new MemoryStream();
 
-        WriteArchive(ms, limit);
+        WriteArchive(ms, lang, limit);
 
         return ms.ToArray();
     }
 
-    public void WriteArchive(String fileName, Int32? limit = null)
+    public void WriteArchive(String fileName, String lang, Int32? limit = null)
     {
         var mode = File.Exists(fileName) ? FileMode.Truncate : FileMode.Create;
 
         using var outputStream = new FileStream(fileName, mode, FileAccess.Write);
 
-        WriteArchive(outputStream, limit);
+        WriteArchive(outputStream, lang, limit);
     }
 
-    public void WriteArchive(Stream outputStream, Int32? limit = null)
+    public void WriteArchive(Stream outputStream, String lang, Int32? limit = null)
     {
         var db = dbContextFactory.CreateDbContext();
 
         var pages = db.Pages
-            .Where(p => p.Step > Step.ToExtractContent)
+            .Where(p => p.Lang == lang && p.Step > Step.ToExtractContent)
             .ToArray();
 
-        var relations = db.TaxonomyRelations.ToArray();
+        var relations = db.TaxonomyRelations.Where(r => r.Lang == lang).ToArray();
 
         var wikiTextImages = (
             from il in db.ImageLinks

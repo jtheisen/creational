@@ -29,7 +29,9 @@ public enum PageType
 
 public class WikiPage
 {
-    [Key]
+    [StringLength(2)]
+    public String Lang { get; set; }
+
     [StringLength(200)]
     public String Title { get; set; }
 
@@ -58,7 +60,9 @@ public class WikiPage
 
 public class WikiPageContent
 {
-    [Key]
+    [StringLength(2)]
+    public String Lang { get; set; }
+
     [StringLength(200)]
     public String Title { get; set; }
 
@@ -82,7 +86,9 @@ public class WikiPageContent
 
 public class WikiTaxoboxImage
 {
-    [Key]
+    [StringLength(2)]
+    public String Lang { get; set; }
+
     [StringLength(200)]
     public String Title { get; set; }
 
@@ -92,7 +98,9 @@ public class WikiTaxoboxImage
 
 public class WikiImageLink
 {
-    [Key]
+    [StringLength(2)]
+    public String Lang { get; set; }
+
     [StringLength(200)]
     public String Title { get; set; }
 
@@ -150,7 +158,9 @@ public class WikiImageData
 
 public class WikiTaxobox
 {
-    [Key]
+    [StringLength(2)]
+    public String Lang { get; set; }
+
     [StringLength(200)]
     public String Title { get; set; }
 
@@ -160,15 +170,20 @@ public class WikiTaxobox
     [StringLength(40)]
     public String Sha1 { get; set; }
 
-    [StringLength(4000)]
+    [StringLength(8000)]
     public String Taxobox { get; set; }
 }
 
 public class ParsingResult
 {
-    [Key]
+    [StringLength(2)]
+    public String Lang { get; set; }
+
     [StringLength(200)]
     public String Title { get; set; }
+
+    [StringLength(60)]
+    public String TemplateName { get; set; }
 
     [CascadeDelete]
     public WikiPage Page { get; set; }
@@ -184,6 +199,8 @@ public class ParsingResult
 
     public Boolean HasTruncationIssue { get; set; }
 
+    public Boolean HasDuplicateTaxoboxEntries { get; set; }
+
     public Boolean WithTaxobox { get; set; }
 
     public ICollection<TaxoboxEntry> TaxoboxEntries { get; set; }
@@ -193,6 +210,9 @@ public class ParsingResult
 
 public class TaxoboxEntry
 {
+    [StringLength(2)]
+    public String Lang { get; set; }
+
     [StringLength(200)]
     public String Title { get; set; }
 
@@ -208,6 +228,9 @@ public class TaxoboxEntry
 
 public class TaxonomyEntry
 {
+    [StringLength(2)]
+    public String Lang { get; set; }
+
     [StringLength(200)]
     public String Title { get; set; }
 
@@ -223,11 +246,14 @@ public class TaxonomyEntry
     public String Name { get; set; }
 
     [StringLength(80)]
-    public String NameDe { get; set; }
+    public String NameLocal { get; set; }
 }
 
 public class TaxonomyRelation
 {
+    [StringLength(2)]
+    public String Lang { get; set; }
+
     [StringLength(200)]
     public String Ancestor { get; set; }
 
@@ -307,18 +333,31 @@ public class ApplicationDb : DbContext
         modelBuilder.UseCollation("Latin1_General_100_CI_AS_SC_UTF8");
 
         modelBuilder.Entity<WikiPage>()
-            .HasIndex(e => new { e.Step, e.Type });
+            .HasKey(e => new { e.Lang, e.Title })
+            ;
+        modelBuilder.Entity<WikiPage>()
+            .HasIndex(e => new { e.Lang, e.Step, e.Type })
+            ;
+        modelBuilder.Entity<WikiPage>()
+            .HasIndex(e => new { e.Lang, e.StepError })
+            ;
 
+        modelBuilder.Entity<WikiPageContent>()
+            .HasKey(e => new { e.Lang, e.Title })
+            ;
         modelBuilder.Entity<WikiPageContent>()
             .HasOne(e => e.Page)
             .WithOne(e => e.Content)
-            .HasForeignKey<WikiPageContent>(e => e.Title)
+            .HasForeignKey<WikiPageContent>(e => new { e.Lang, e.Title })
             ;
         modelBuilder.Entity<WikiPageContent>()
             .Property(e => e.Text)
             .HasColumnType("nvarchar(max)")
             ;
 
+        modelBuilder.Entity<WikiTaxoboxImage>()
+            .HasKey(e => new { e.Lang, e.Title })
+            ;
         modelBuilder.Entity<WikiTaxoboxImage>()
             .HasKey(e => new { e.Title })
             ;
@@ -328,7 +367,7 @@ public class ApplicationDb : DbContext
             ;
 
         modelBuilder.Entity<WikiImageLink>()
-            .HasKey(e => new { e.Title, e.Position })
+            .HasKey(e => new { e.Lang, e.Title, e.Position })
             ;
         modelBuilder.Entity<WikiImageLink>()
             .Property(e => e.Filename)
@@ -356,19 +395,25 @@ public class ApplicationDb : DbContext
             ;
 
         modelBuilder.Entity<WikiTaxobox>()
+            .HasKey(e => new { e.Lang, e.Title })
+            ;
+        modelBuilder.Entity<WikiTaxobox>()
             .HasOne(e => e.Page)
             .WithOne(e => e.Taxobox)
-            .HasForeignKey<WikiTaxobox>(e => e.Title)
+            .HasForeignKey<WikiTaxobox>(e => new { e.Lang, e.Title })
             ;
 
         modelBuilder.Entity<ParsingResult>()
+            .HasKey(e => new { e.Lang, e.Title })
+            ;
+        modelBuilder.Entity<ParsingResult>()
             .HasOne(e => e.Page)
             .WithOne(e => e.Parsed)
-            .HasForeignKey<ParsingResult>(e => e.Title)
+            .HasForeignKey<ParsingResult>(e => new { e.Lang, e.Title })
             ;
 
         modelBuilder.Entity<TaxoboxEntry>()
-            .HasKey(e => new { e.Title, e.Key })
+            .HasKey(e => new { e.Lang, e.Title, e.Key })
             ;
         modelBuilder.Entity<TaxoboxEntry>()
             .HasOne(e => e.ParsedPage)
@@ -376,41 +421,41 @@ public class ApplicationDb : DbContext
             ;
 
         modelBuilder.Entity<TaxonomyEntry>()
-            .HasKey(e => new { e.Title, e.No })
+            .HasKey(e => new { e.Lang, e.Title, e.No })
             ;
         modelBuilder.Entity<TaxonomyEntry>()
             .HasOne(e => e.ParsedPage)
             .WithMany(e => e.TaxonomyEntries)
             ;
         modelBuilder.Entity<TaxonomyEntry>()
-            .HasIndex(e => new { e.Rank, e.Title })
-            .IncludeProperties(e => new { e.Name, e.NameDe })
+            .HasIndex(e => new { e.Lang, e.Rank, e.Title })
+            .IncludeProperties(e => new { e.Name, e.NameLocal })
             ;
         modelBuilder.Entity<TaxonomyEntry>()
-            .HasIndex(e => new { e.Name, e.Rank, e.Title })
-            .IncludeProperties(e => new { e.NameDe })
+            .HasIndex(e => new { e.Lang, e.Name, e.Rank, e.Title })
+            .IncludeProperties(e => new { e.NameLocal })
             ;
         modelBuilder.Entity<TaxonomyEntry>()
-            .HasIndex(e => new { e.NameDe, e.Rank, e.Title })
+            .HasIndex(e => new { e.Lang, e.NameLocal, e.Rank, e.Title })
             .IncludeProperties(e => new { e.Name })
             ;
 
         modelBuilder.Entity<TaxonomyRelation>()
-            .HasKey(e => new { e.Ancestor, e.Descendant })
+            .HasKey(e => new { e.Lang, e.Ancestor, e.Descendant })
             ;
         modelBuilder.Entity<TaxonomyRelation>()
-            .HasIndex(e => new { e.Descendant, e.Ancestor })
+            .HasIndex(e => new { e.Lang, e.Descendant, e.Ancestor })
             .IncludeProperties(e => new { e.No })
             ;
         modelBuilder.Entity<TaxonomyRelation>()
             .HasOne(e => e.AncestorPage)
             .WithMany()
-            .HasForeignKey(e => e.Ancestor)
+            .HasForeignKey(e => new { e.Lang, e.Ancestor })
             ;
         modelBuilder.Entity<TaxonomyRelation>()
             .HasOne(e => e.DescendantPage)
             .WithMany()
-            .HasForeignKey(e => e.Descendant)
+            .HasForeignKey(e => new { e.Lang, e.Descendant })
             ;
 
         SetUnicode(modelBuilder);

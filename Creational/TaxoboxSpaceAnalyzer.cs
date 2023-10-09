@@ -59,7 +59,7 @@ public class TaxoboxSpaceAnalyzer
         }
     }
 
-    public void Analyze()
+    public void Analyze(String lang)
     {
         var db = dbContextFactory.CreateDbContext();
 
@@ -67,8 +67,8 @@ public class TaxoboxSpaceAnalyzer
 
         var redirections = (
             from p in db.Pages
-            where p.Type == PageType.Redirect
-            join c in db.PageContents on p.Title equals c.Title into cs
+            where p.Lang == lang && p.Type == PageType.Redirect
+            join c in db.PageContents on new { p.Lang, p.Title } equals new { c.Lang, c.Title } into cs
             from c in cs
             select new { p.Title, c.RedirectTitle }
         ).ToDictionary(p => p.Title, p => p.RedirectTitle);
@@ -76,7 +76,7 @@ public class TaxoboxSpaceAnalyzer
         log.Info("Redirections loaded");
 
         var pageQuery = db.Pages
-            .Where(p => p.Type == PageType.Content);
+            .Where(p => p.Lang == lang && p.Type == PageType.Content);
 
         var pages = pageQuery
             .Include(p => p.Parsed)
@@ -129,6 +129,13 @@ public class TaxoboxSpaceAnalyzer
 
             AddPage(pageInfo, page.Title);
 
+            if (page.Parsed?.Exception is String parsingException)
+            {
+                pageInfo.Issue = $"parsing: {parsingException}";
+
+                continue;
+            }
+
             if (page.Parsed?.TaxonomyEntries is not ICollection<TaxonomyEntry> entries)
             {
                 pageInfo.Issue = "no taxonomy entries";
@@ -141,7 +148,7 @@ public class TaxoboxSpaceAnalyzer
             if (mainEntry is not null)
             {
                 AddPage(pageInfo, mainEntry.Name);
-                AddPage(pageInfo, mainEntry.NameDe);
+                AddPage(pageInfo, mainEntry.NameLocal);
 
                 if (!String.IsNullOrWhiteSpace(mainEntry.Name))
                 {
@@ -167,7 +174,7 @@ public class TaxoboxSpaceAnalyzer
                 {
                     PageInfo ancestor = null;
                     if (pagesBySomeName.TryGetValue(entry.Name ?? "", out ancestor) ||
-                        pagesBySomeName.TryGetValue(entry.NameDe ?? "", out ancestor))
+                        pagesBySomeName.TryGetValue(entry.NameLocal ?? "", out ancestor))
                     {
                         if (ancestor == pageInfo)
                         {
@@ -280,6 +287,7 @@ public class TaxoboxSpaceAnalyzer
 
             relations.Add(new TaxonomyRelation
             {
+                Lang = pageInfo.Page.Lang,
                 Descendant = pageInfo.Page.Title,
                 Ancestor = pageInfo.Ancestor.Page.Title,
                 No = pageInfo.AncestorEntryNo
@@ -298,14 +306,24 @@ public class TaxoboxSpaceAnalyzer
 
         using var command = connection.CreateCommand();
 
-        command.CommandText = $"delete from {nameof(ApplicationDb.TaxonomyRelations)}";
+        command.CommandText = $"delete from {nameof(ApplicationDb.TaxonomyRelations)} where lang = '{lang}'";
         command.Transaction = transaction;
         command.ExecuteNonQuery();
 
         using var bulkCopy = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction);
 
         bulkCopy.DestinationTableName = nameof(ApplicationDb.TaxonomyRelations);
-        
+
+        foreach (var col in new[] {
+            nameof(TaxonomyRelation.Lang),
+            nameof(TaxonomyRelation.Descendant),
+            nameof(TaxonomyRelation.Ancestor),
+            nameof(TaxonomyRelation.No)
+        })
+        {
+            bulkCopy.ColumnMappings.Add(new SqlBulkCopyColumnMapping(col, col));
+        }
+
         bulkCopy.WriteToServer(data);
 
         transaction.Commit();

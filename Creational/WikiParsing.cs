@@ -1,8 +1,26 @@
-﻿using Humanizer;
+﻿using Creational.Migrations;
+using Humanizer;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace Creational;
+
+public class ParsingException : Exception
+{
+    public ParsingException(String message, String additionalMessage)
+        : base($"{message} ({additionalMessage})")
+    {
+        SimpleMessage = message;
+    }
+
+    public ParsingException(String message)
+        : base(message)
+    {
+        SimpleMessage = message;
+    }
+
+    public String SimpleMessage { get; }
+}
 
 public class RedirectParser
 {
@@ -25,13 +43,217 @@ public class RedirectParser
     }
 }
 
+public abstract class WikiParsingReceiver
+{
+    protected String Text { get; private set; }
+
+    public virtual void Start(String text)
+    {
+        Text = text;
+    }
+
+    public virtual void Stop(Range range) { }
+
+    protected String GetRange(Range range) => Text[range].Trim();
+
+    public virtual void AddText(Range text) { }
+
+    public virtual void OpenTemplate(Range name) { }
+
+    public virtual void AddKey(Range name) { }
+
+    public virtual void EndValue(Range valueMarkup) { }
+
+    public virtual void CloseTemplate(Range template) { }
+}
+
+public class WikiParser
+{
+    readonly String input;
+    readonly WikiParsingReceiver receiver;
+
+    Int32 p;
+
+    public WikiParser(String input, WikiParsingReceiver receiver)
+    {
+        this.input = input;
+        this.receiver = receiver;
+    }
+
+    public void Parse()
+    {
+        receiver.Start(input);
+
+        ParseWikiString();
+
+        receiver.Stop(new Range(0, p));
+    }
+
+    void FlushText(Int32 p)
+    {
+        receiver.AddText(new Range(this.p, p));
+
+        this.p = p;
+    }
+
+    Char GetNextChar(Int32 i)
+    {
+        return input.Length > i + 1 ? input[i + 1] : default;
+    }
+
+    void ParseWikiString(Boolean stopAtPipe = false)
+    {
+        var i = p;
+
+        var n = input.Length;
+
+        while (i < n)
+        {
+            var c = input[i];
+
+            switch (c)
+            {
+                case '{':
+                    if (GetNextChar(i) == '{')
+                    {
+                        FlushText(i);
+
+                        ParseTemplate();
+
+                        i = p;
+                    }
+                    break;
+                case '}':
+                    if (GetNextChar(i) == '}')
+                    {
+                        FlushText(i);
+
+                        return;
+                    }
+                    break;
+                case '|':
+                    if (stopAtPipe)
+                    {
+                        FlushText(i);
+
+                        return;
+                    }
+                    break;
+                default:
+                    ++i;
+                    break;
+            }
+        }
+
+        FlushText(i);
+    }
+
+    void ParseTemplate()
+    {
+        if (input.Substring(p, 2) != "{{") throw new Exception("Expected '{{'");
+
+        var s = p;
+
+        var i = input.IndexOf('\n', p);
+
+        if (i < 0) throw new Exception("No newline found on template opener");
+
+        receiver.OpenTemplate(new Range(p + 2, i));
+
+        p = i + 1;
+
+        ParseTemplateLines();
+
+        if (input.Substring(p, 2) != "}}") throw new Exception("Expected '}}'");
+
+        p += 2;
+
+        receiver.CloseTemplate(new Range(s, p));
+    }
+
+    static Char[] TerminationCharacterAfterKey = { '|', '=', '}', '\n' };
+
+    void ParseTemplateLines()
+    {
+        while (true)
+        {
+            var i = p;
+
+            while (input.Length > i && Char.IsWhiteSpace(input[i])) ++i;
+
+            if (input.Length <= i) Throw("Unexpected end of unclosed template");
+
+            var c = input[i];
+
+            switch (c)
+            {
+                case '|':
+                    break;
+                case '}':
+                    if (input.Length <= i + 1 || input[i + 1] != '}')
+                    {
+                        Throw("Got '}' on inner template context, but it wasn't followed up by a second '}'", i);
+                    }
+
+                    p = i;
+                    return;
+                default:
+                    Throw($"Expected '|' to indicate a key-value pair, but got '{c}'", i);
+                    break;
+            }
+
+            var ei = input.IndexOfAny(TerminationCharacterAfterKey, i + 1);
+
+            if (ei < 0) Throw("Expected to find a character to terminate key", ei);
+
+            receiver.AddKey(new Range(i + 1, ei));
+
+            p = ei + 1;
+
+            switch (input[ei])
+            {
+                case '|':
+                    break;
+                case '}':
+                    if (input.Length <= p || input[p] != '}')
+                    {
+                        Throw("Got '}' on inner template context, but it wasn't followed up by a second '}'", i);
+                    }
+
+                    break;
+                case '=':
+                    ParseWikiString(stopAtPipe: true);
+                    break;
+                case '\n':
+                    Throw("Unexpected newline after key introduction", ei);
+                    break;
+            }
+
+            receiver.EndValue(new Range(ei, p));
+        }
+    }
+
+    void Throw(String message, Int32? pos = null)
+    {
+        var cn = 10;
+
+        var p = pos ?? this.p;
+
+        var pi = Math.Max(0, p - cn);
+        var si = Math.Min(input.Length, p + cn);
+
+        throw new ParsingException(message, $"at >{input[pi..p]}*{input[p..si]}<");
+    }
+}
+
 public class TaxoboxParser
 {
+    static readonly String taxoboxNamesRegex = "(?:Taxobox|Automatic[_ ]taxobox|Speciesbox)";
+
     //Regex infoboxSimpleMatcher = new Regex(@"^{{Taxobox.*");
     Regex regexTaxoboxWithEntries = new Regex(@"^{{Taxobox\n(\|\s*(\w+)\s*=\s*([^\n]+)\n)*}}", RegexOptions.Multiline, TimeSpan.FromMilliseconds(100));
     Regex regexImageStart = new Regex(@"\[\[(?:File|Datei):(.*?)(\||]])");
-    Regex regexTaxoboxSimple = new Regex(@"{{Taxobox.*?\n}}", RegexOptions.Singleline);
-    Regex regexTaxoboxOpener = new Regex(@"{{[ ]*taxobox\b");
+    Regex regexTaxoboxSimple = new Regex(@"{{TAXOBOX\n.*?\n\s*}}".Replace("TAXOBOX", taxoboxNamesRegex), RegexOptions.Singleline | RegexOptions.IgnoreCase);
     Regex regexXmlComment = new Regex(@"<!--.*?-->", RegexOptions.Singleline);
     Regex regexDewikifiy = new Regex(@"(\[\[[^\]]*?([^\]|]*)\]\])");
 
@@ -65,24 +287,17 @@ public class TaxoboxParser
         return matches.Groups[0].Value;
     }
 
-    public String GetTaxobox(String text)
+    // currently unused
+    public String ParseTemplate(String text, Int32 startI)
     {
         Sanitize(ref text);
 
-        var startI = text.IndexOf("{{Taxobox");
-
-        if (startI < 0)
+        if (text.Substring(startI, 2) != "{{")
         {
-            var match = regexTaxoboxOpener.Match(text);
-
-            if (!match.Success) return null;
-
-            throw new Exception($"Taxobox head not found");
+            throw new Exception("Expected text to start with '{{'");
         }
 
         var p = startI + 2;
-
-        var length = text.Length;
 
         var level = 1;
 
@@ -91,7 +306,7 @@ public class TaxoboxParser
             var openI = text.IndexOf("{{", p);
             var closeI = text.IndexOf("}}", p);
 
-            if (closeI < 0) throw new Exception("Taxobox ending missing");
+            if (closeI < 0) throw new Exception("Template ending ('}}') missing");
 
             if (openI < 0 || openI > closeI)
             {
@@ -110,18 +325,46 @@ public class TaxoboxParser
         return text.Substring(startI, p - startI);
     }
 
+    public String GetTemplateName(String text)
+    {
+        Sanitize(ref text);
+
+        if (!text.StartsWith("{{"))
+        {
+            throw new Exception("Taxobox doesn't start with '{{'");
+        }
+
+        var i = text.IndexOf('\n');
+
+        return text.Substring(2, i - 2).Trim();
+    }
 
     public void GetEntries(ParsingResult result, String text)
     {
         Sanitize(ref text);
 
+        var templateName = GetTemplateName(text);
+
+        if (templateName.Length > 60) throw new Exception($"Template name is too long");
+
         var lines = ParseLines(text).ToArray();
 
         var taxoboxEntries = new List<TaxoboxEntry>();
 
+        var knownKeys = new HashSet<String>();
+
         foreach (var line in lines)
         {
-            taxoboxEntries.Add(new TaxoboxEntry { Key = line.key, Value = line.value.Truncate(80) });
+            if (!knownKeys.Add(line.key))
+            {
+                result.HasDuplicateTaxoboxEntries = true;
+
+                continue;
+            }
+
+            if (line.key.Length > 60) throw new Exception("Taxobox line key too long");
+
+            taxoboxEntries.Add(new TaxoboxEntry { Lang = result.Lang, Title = result.Title, Key = line.key, Value = line.value.Truncate(80) });
         }
 
         var taxonomyEntries = new TaxonomyEntry[10];
@@ -141,12 +384,13 @@ public class TaxoboxParser
 
         foreach (var te in taxonomyEntries)
         {
-            if (te?.Name is null && te?.NameDe is null) continue;
+            if (te?.Name is null && te?.NameLocal is null) continue;
 
             taxonomyEntriesToWrite.Add(te);
         }
 
         result.WithTaxobox = taxoboxEntries.Count > 0;
+        result.TemplateName = templateName;
         result.TaxoboxEntries = taxoboxEntries;
         result.TaxonomyEntries = taxonomyEntriesToWrite;
     }
@@ -162,7 +406,7 @@ public class TaxoboxParser
 
     IEnumerable<(String key, String value)> ParseLines(String text)
     {
-        var head = "{{Taxobox";
+        var head = "{{";
 
         if (!text.StartsWith(head)) throw new Exception($"Expected text to start with {head}");
 
@@ -189,7 +433,7 @@ public class TaxoboxParser
 
             i = text.IndexOf('=', p);
 
-            if (i < 0) throw new Exception($"Value is missing for key at {p}");
+            if (i < 0) throw new ParsingException($"Value is missing for key", $"After <{text.Substring(p).Truncate(50)}>");
 
             var key = text.Substring(p, i - p).Trim();
 
@@ -221,6 +465,7 @@ public class TaxoboxParser
 
             target ??= new TaxonomyEntry();
 
+            target.Lang = taxoboxEntry.Lang;
             target.No = i;
 
             var value = Dewikify(taxoboxEntry.Value).Truncate(50);
@@ -261,7 +506,7 @@ public class TaxoboxParser
         {
             GetProp(nameof(TaxonomyEntry.Rank), TaxoboxField.Rank, "rang"),
             GetProp(nameof(TaxonomyEntry.Name), TaxoboxField.Rank, "wissname"),
-            GetProp(nameof(TaxonomyEntry.NameDe), TaxoboxField.Rank, "name")
+            GetProp(nameof(TaxonomyEntry.NameLocal), TaxoboxField.Rank, "name")
         };
     }
 
