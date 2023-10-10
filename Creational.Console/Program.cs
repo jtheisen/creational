@@ -54,7 +54,7 @@ var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 
 //importer.Import(fileName, lang, dryRun: false);
 
-//extractionWorker.ProcessAll(lang);
+extractionWorker.ProcessAll(lang);
 parsingWorker.ProcessAll(lang);
 //analyzer.Analyze(lang);
 

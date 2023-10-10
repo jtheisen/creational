@@ -8,63 +8,13 @@ using System.Xml.Linq;
 
 namespace Creational;
 
-public class XmlParsingReceiver : WikiParsingReceiver
-{
-    Stack<XElement> stack;
-
-    public XElement Top => stack.Peek();
-
-    public override void Start(String text)
-    {
-        base.Start(text);
-
-        stack = new Stack<XElement>();
-
-        stack.Push(new XElement("root"));
-    }
-
-    public override void Stop(Range range)
-    {
-        if (stack.Count != 1) throw new Exception("Expected a singleton stack");
-
-        base.Stop(range);
-    }
-
-    public override void AddText(Range text)
-    {
-        Top.Add(GetRange(text).Trim());
-    }
-
-    public override void OpenTemplate(Range name)
-    {
-        stack.Push(new XElement(GetRange(name)));
-    }
-
-    public override void CloseTemplate(Range template)
-    {
-        var child = stack.Pop();
-
-        Top.Add(child);
-    }
-
-    public override void AddKey(Range name)
-    {
-        stack.Push(new XElement(GetRange(name).Trim()));
-    }
-
-    public override void EndValue(Range valueMarkup)
-    {
-        var child = stack.Pop();
-
-        Top.Add(child);
-    }
-}
-
 [TestClass]
 public class NewParsingTests
 {
     [DataRow("""foo""", """foo""")]
     [DataRow("""<lang><de /><foo /></lang>""", """{{lang|de|foo}}""")]
+    [DataRow("""<a><_1>Lifeform</_1></a>""", """[[Lifeform]]""")]
+    [DataRow("""<a><_1>Lifeform</_1><_2>the root</_2></a>""", """[[Lifeform|the root]]""")]
     [DataRow("""
         <Taxobox>
             <x>Anguilla-anguilla 1.jpg</x>
@@ -126,21 +76,26 @@ public class NewParsingTests
         | Bildbeschreibung = (''{{lang|la|Geranium_pratense}}'')
         }}        }}
         """)]
-    //[DataRow("""
-    //    <Taxobox>
-    //        <Taxon_Name>Storchschnäbel</Taxon_Name>
-    //        <Taxon_Autor>Storchschnäbel</Taxon_Autor>
-    //        <Taxon2_Name>Storchschnabelgewächse</Taxon2_Name>
-    //        <Bildbeschreibung>Storchschnäbel</Bildbeschreibung>
-    //    </Taxobox>
-    //    """, """
-    //    {{Taxobox
-    //    | Taxon_Name       = Storchschnäbel
-    //    | Taxon_Autor      = [[Carl von Linné|L.]]
-    //    | Taxon2_Name      = Storchschnabelgewächse
-    //    | Bildbeschreibung = [[Wiesen-Storchschnabel]] (''{{lang|la|Geranium pratense}}'')
-    //    }}        }}
-    //    """)]
+    [DataRow("""
+        <Taxobox>
+            <Taxon_Name>Storchschnäbel</Taxon_Name>
+            <Taxon_Autor>
+                <a>
+                    <_1>Carl von Linné</_1>
+                    <_2>L.</_2>
+                </a>
+            </Taxon_Autor>
+            <Taxon2_Name>Storchschnabelgewächse</Taxon2_Name>
+            <Bildbeschreibung><a><_1>Wiesen-Storchschnabel</_1></a>(''<lang><la /><Geranium_pratense /></lang>'')</Bildbeschreibung>
+        </Taxobox>
+        """, """
+        {{Taxobox
+        | Taxon_Name       = Storchschnäbel
+        | Taxon_Autor      = [[Carl von Linné|L.]]
+        | Taxon2_Name      = Storchschnabelgewächse
+        | Bildbeschreibung = [[Wiesen-Storchschnabel]] (''{{lang|la|Geranium_pratense}}'')
+        }}        }}
+        """)]
     [TestMethod]
     public void TestParsing(String expected, String original)
     {

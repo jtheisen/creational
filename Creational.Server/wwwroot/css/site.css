@@ -1,34 +1,3 @@
-@import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
-
-html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-}
-
-h1:focus {
-    outline: none;
-}
-
-a, .btn-link {
-    color: #0071c1;
-}
-
-.btn-primary {
-    color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
-}
-
-.valid.modified:not([type=checkbox]) {
-    outline: 1px solid #26b050;
-}
-
-.invalid {
-    outline: 1px solid red;
-}
-
-.validation-message {
-    color: red;
-}
 
 #blazor-error-ui {
     background: lightyellow;
@@ -58,3 +27,18 @@ a, .btn-link {
     .blazor-error-boundary::after {
         content: "An error has occurred."
     }
+
+html,
+body,
+.mud-layout,
+.mud-main-content {
+    height: 100vh;
+}
+
+.full-height {
+    height: 100%;
+}
+
+.showbox > pre {
+    white-space: pre-wrap;
+}

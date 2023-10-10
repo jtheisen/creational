@@ -9,13 +9,13 @@ public class TaxoboxParsingWorker
     static Logger log = LogManager.GetCurrentClassLogger();
 
     private readonly IDbContextFactory<ApplicationDb> dbFactory;
-    private readonly TaxoboxParser taxoboxParser;
+    private readonly HeuristicTaxoboxParser taxoboxParser;
 
     public TaxoboxParsingWorker(IDbContextFactory<ApplicationDb> dbFactory)
     {
         this.dbFactory = dbFactory;
 
-        taxoboxParser = new TaxoboxParser();
+        taxoboxParser = new HeuristicTaxoboxParser();
     }
 
     public void ProcessAll(String lang)

@@ -5,7 +5,7 @@ namespace Creational;
 [TestClass]
 public class ParsingTests
 {
-    TaxoboxParser parser = new TaxoboxParser();
+    HeuristicTaxoboxParser parser = new HeuristicTaxoboxParser();
 
     [TestMethod]
     [DataRow("Peel & Stein, 2009", "[[John S. Peel|Peel]] & [[Martin Stein|Stein]], 2009")]
@@ -71,7 +71,7 @@ public class ParsingTests
         """)]
     public void TestTaxoboxRecognition(String expected, String original)
     {
-        var actual = parser.GetTaxoboxWithRegex(original);
+        var actual = parser.GetTaxoboxWithHeuristicParsing(original);
 
         Assert.IsNotNull(actual, "No taxobox recognized");
 

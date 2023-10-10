@@ -1,0 +1,17 @@
+﻿
+<div class="showbox flex-1 ma-2 pa-1 d-flex flex-column overflow-hidden" >
+    <div class="flex-initial">@Title</div>
+    <pre class="flex-1 border" style="overflow: scroll">@Text</pre>
+</div>
+
+@code {
+    [Parameter]
+    public String Title { get; set; }
+
+    [Parameter]
+    public String Text { get; set; }
+
+    [Parameter]
+    public String Class { get; set; }
+}
+

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +24,8 @@ services.AddDbContextFactory<ApplicationDb>(options =>
         .UseSqlServer(settings.DbConnection),
     ServiceLifetime.Transient
 );
+
+services.AddMudServices();
 
 var app = builder.Build();
 

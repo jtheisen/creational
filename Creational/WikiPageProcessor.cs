@@ -9,13 +9,13 @@ public class WikiPageProcessor
     static Logger log = LogManager.GetCurrentClassLogger();
 
     private readonly IDbContextFactory<ApplicationDb> dbFactory;
-    private readonly TaxoboxParser taxoboxParser;
+    private readonly HeuristicTaxoboxParser taxoboxParser;
 
     public WikiPageProcessor(IDbContextFactory<ApplicationDb> dbFactory)
     {
         this.dbFactory = dbFactory;
 
-        taxoboxParser = new TaxoboxParser();
+        taxoboxParser = new HeuristicTaxoboxParser();
     }
 
     public void ProcessAll()

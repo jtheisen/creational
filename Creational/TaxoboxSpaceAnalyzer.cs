@@ -10,13 +10,13 @@ public class TaxoboxSpaceAnalyzer
     static Logger log = LogManager.GetCurrentClassLogger();
 
     private readonly IDbContextFactory<ApplicationDb> dbContextFactory;
-    private readonly TaxoboxParser taxoboxParser;
+    private readonly HeuristicTaxoboxParser taxoboxParser;
 
     public TaxoboxSpaceAnalyzer(IDbContextFactory<ApplicationDb> dbContextFactory)
     {
         this.dbContextFactory = dbContextFactory;
 
-        taxoboxParser = new TaxoboxParser();
+        taxoboxParser = new HeuristicTaxoboxParser();
     }
 
     public class PageInfo

@@ -11,7 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Creational.Console", "Creat
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestSuite", "TestSuite\TestSuite.csproj", "{18B9914A-AB05-47AC-8B82-98E8E1E987E9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pipelines", "Pipelines\Pipelines.csproj", "{A925F69F-7835-4B13-A121-8653C5149D3A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Pipelines", "Pipelines\Pipelines.csproj", "{A925F69F-7835-4B13-A121-8653C5149D3A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

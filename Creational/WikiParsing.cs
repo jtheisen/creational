@@ -2,6 +2,7 @@
 using Humanizer;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace Creational;
 
@@ -58,6 +59,12 @@ public abstract class WikiParsingReceiver
 
     public virtual void AddText(Range text) { }
 
+    public virtual void OpenLink() { }
+
+    public virtual void AddLinkSeparator() { }
+
+    public virtual void CloseLink(Range linkMarkup) { }
+
     public virtual void OpenTemplate(Range name) { }
 
     public virtual void AddKey(Range name) { }
@@ -65,6 +72,121 @@ public abstract class WikiParsingReceiver
     public virtual void EndValue(Range valueMarkup) { }
 
     public virtual void CloseTemplate(Range template) { }
+}
+
+public class XmlParsingReceiver : WikiParsingReceiver
+{
+    public static XElement Parse(String text)
+    {
+        var receiver = new XmlParsingReceiver();
+
+        var parser = new WikiParser(text, receiver);
+
+        parser.Parse();
+
+        return receiver.Top;
+    }
+
+    public static String ParseToString(String text)
+    {
+        return Parse(text).ToString();
+    }
+
+    Stack<XElement> stack;
+
+    void Pop(String name = null)
+    {
+        var child = stack.Pop();
+
+        if (name is not null)
+        {
+            if (child.Name.LocalName != name) throw new Exception($"Expected to have an element '{name}' on the stack");
+        }
+
+        Top.Add(child);
+    }
+
+    public XElement Top => stack.Peek();
+
+    public override void Start(String text)
+    {
+        base.Start(text);
+
+        stack = new Stack<XElement>();
+
+        stack.Push(new XElement("root"));
+    }
+
+    public override void Stop(Range range)
+    {
+        if (stack.Count != 1) throw new Exception("Expected a singleton stack");
+
+        base.Stop(range);
+    }
+
+    public override void AddText(Range text)
+    {
+        Top.Add(GetRange(text).Trim());
+    }
+
+    public override void OpenLink()
+    {
+        stack.Push(new XElement("a"));
+        stack.Push(new XElement("_1"));
+    }
+
+    public override void AddLinkSeparator()
+    {
+        var child = stack.Pop();
+
+        Top.Add(child);
+
+        var previousName = child.Name.LocalName;
+
+        var previousNumber = Int32.Parse(previousName.TrimStart('_'));
+
+        var newName = $"_{previousNumber + 1}";
+
+        stack.Push(new XElement(newName));
+    }
+
+    public override void CloseLink(Range linkMarkup)
+    {
+        Pop();
+        Pop("a");
+    }
+
+    public override void OpenTemplate(Range name)
+    {
+        stack.Push(new XElement(GetNameRange(name)));
+    }
+
+    public override void CloseTemplate(Range template)
+    {
+        Pop();
+    }
+
+    public override void AddKey(Range name)
+    {
+        stack.Push(new XElement(GetNameRange(name)));
+    }
+
+    public override void EndValue(Range valueMarkup)
+    {
+        Pop();
+    }
+
+    String GetNameRange(Range range)
+    {
+        var name = GetRange(range).Trim().Replace(' ', '_');
+
+        if (!Char.IsLetter(name[0]))
+        {
+            name = "_" + name;
+        }
+
+        return name;
+    }
 }
 
 public class WikiParser
@@ -101,11 +223,13 @@ public class WikiParser
         return input.Length > i + 1 ? input[i + 1] : default;
     }
 
-    void ParseWikiString(Boolean stopAtPipe = false)
+    void ParseWikiString(Boolean stopAtPipe = false, Boolean stopAtCloseBracket = false, Boolean stopAtSpace = false)
     {
         var i = p;
 
         var n = input.Length;
+
+        if (i == n) Throw("Unexpected empty text to parse");
 
         while (i < n)
         {
@@ -131,6 +255,24 @@ public class WikiParser
                         return;
                     }
                     break;
+                case '[':
+                    {
+                        FlushText(i);
+
+                        ParseLink();
+
+                        i = p;
+                    }
+                    break;
+                case ']':
+                    if (stopAtCloseBracket)
+                    {
+                        FlushText(i);
+
+                        return;
+                    }
+                    ++i;
+                    break;
                 case '|':
                     if (stopAtPipe)
                     {
@@ -138,6 +280,16 @@ public class WikiParser
 
                         return;
                     }
+                    ++i;
+                    break;
+                case ' ':
+                    if (stopAtSpace)
+                    {
+                        FlushText(i);
+
+                        return;
+                    }
+                    ++i;
                     break;
                 default:
                     ++i;
@@ -146,6 +298,50 @@ public class WikiParser
         }
 
         FlushText(i);
+    }
+
+    void ParseLink()
+    {
+        var s = p;
+
+        if (input[p] != '[') Throw("Expected link expression to start with '['");
+
+        ++p;
+
+        var isInternal = input[p] == '[';
+
+        if (isInternal)
+        {
+            ++p;
+        }
+
+        receiver.OpenLink();
+
+        while (true)
+        {
+            ParseWikiString(stopAtPipe: isInternal, stopAtCloseBracket: true, stopAtSpace: !isInternal);
+
+            switch (input[p])
+            {
+                case ']':
+                    ++p;
+                    if (isInternal)
+                    {
+                        if (input[p] != ']') Throw("Expected a second ']' to close the link");
+                        ++p;
+                    }
+                    receiver.CloseLink(new Range(s, p));
+                    return;
+                case '|':
+                case ' ':
+                    receiver.AddLinkSeparator();
+                    ++p;
+                    break;
+                default:
+                    Throw("Unexpected end of link expression");
+                    break;
+            }
+        }
     }
 
     static Char[] TemplateContentTerminationCharacter = { '|', '=', '}' };
@@ -253,7 +449,7 @@ public class WikiParser
     }
 }
 
-public class TaxoboxParser
+public class HeuristicTaxoboxParser
 {
     static readonly String taxoboxNamesRegex = "(?:Taxobox|Automatic[_ ]taxobox|Speciesbox)";
 
@@ -261,6 +457,7 @@ public class TaxoboxParser
     Regex regexTaxoboxWithEntries = new Regex(@"^{{Taxobox\n(\|\s*(\w+)\s*=\s*([^\n]+)\n)*}}", RegexOptions.Multiline, TimeSpan.FromMilliseconds(100));
     Regex regexImageStart = new Regex(@"\[\[(?:File|Datei):(.*?)(\||]])");
     Regex regexTaxoboxSimple = new Regex(@"{{TAXOBOX\n.*?\n\s*}}".Replace("TAXOBOX", taxoboxNamesRegex), RegexOptions.Singleline | RegexOptions.IgnoreCase);
+    Regex regexTaxoboxOpener = new Regex(@"{{[ ]*TAXOBOX\b".Replace("TAXOBOX", taxoboxNamesRegex));
     Regex regexXmlComment = new Regex(@"<!--.*?-->", RegexOptions.Singleline);
     Regex regexDewikifiy = new Regex(@"(\[\[[^\]]*?([^\]|]*)\]\])");
 
@@ -283,26 +480,26 @@ public class TaxoboxParser
         text = RemoveXmlComments(text);
     }
 
-    public String GetTaxoboxWithRegex(String text)
+    //public String GetTaxoboxWithRegex(String text)
+    //{
+    //    Sanitize(ref text);
+
+    //    var matches = regexTaxoboxSimple.Match(text);
+
+    //    if (!matches.Success) return null;
+
+    //    return matches.Groups[0].Value;
+    //}
+
+    public String GetTaxoboxWithHeuristicParsing(String text)
     {
         Sanitize(ref text);
 
-        var matches = regexTaxoboxSimple.Match(text);
+        var match = regexTaxoboxOpener.Match(text);
 
-        if (!matches.Success) return null;
+        if (!match.Success) return null;
 
-        return matches.Groups[0].Value;
-    }
-
-    // currently unused
-    public String ParseTemplate(String text, Int32 startI)
-    {
-        Sanitize(ref text);
-
-        if (text.Substring(startI, 2) != "{{")
-        {
-            throw new Exception("Expected text to start with '{{'");
-        }
+        var startI = match.Index;
 
         var p = startI + 2;
 
@@ -313,7 +510,7 @@ public class TaxoboxParser
             var openI = text.IndexOf("{{", p);
             var closeI = text.IndexOf("}}", p);
 
-            if (closeI < 0) throw new Exception("Template ending ('}}') missing");
+            if (closeI < 0) throw new Exception("Taxobox ending missing");
 
             if (openI < 0 || openI > closeI)
             {
@@ -331,7 +528,6 @@ public class TaxoboxParser
 
         return text.Substring(startI, p - startI);
     }
-
     public String GetTemplateName(String text)
     {
         Sanitize(ref text);
@@ -498,7 +694,7 @@ public class TaxoboxParser
 
     static TaxonomyEntryProperty[] taxonomyEntryProperties;
 
-    static TaxoboxParser()
+    static HeuristicTaxoboxParser()
     {
         var type = typeof(TaxonomyEntry);
 

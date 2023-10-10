@@ -1,9 +1,90 @@
 ﻿@page "/"
+@inject IDbContextFactory<ApplicationDb> DbFactory
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Search page</PageTitle>
 
-<h1>Hello, world!</h1>
+@*<MudTextField @bind-Value="searchText" DebounceInterval="500" OnDebounceIntervalElapsed="Reload" />
+*@
 
-Welcome to your new app.
+<div class="flex-initial">
+    <MudAutocomplete T="WikiPage" Label="Pages" Value="selectedPage" ValueChanged="HandleSelectedPageChanged" SearchFuncWithCancel="@Search" Variant="Variant.Outlined" ShowProgressIndicator="true" ToStringFunc="@(p => p?.Title ?? "")">
+        <ItemTemplate>
+            <MudText>@context.Title</MudText>
+        </ItemTemplate>
+        <ItemSelectedTemplate>
+            <MudText>@context.Title</MudText>
+        </ItemSelectedTemplate>
+    </MudAutocomplete>
+</div>
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+<div class="flex-1 d-flex overflow-hidden">
+    <Showbox Title="Content" Text="@LoadedPageContent" />
+    <Showbox Title="Taxobox Raw" Text="@recognizedTaxobox" />
+    <Showbox Title="Taxobox Xml" Text="@taxoboxXmlRepresentation" />
+</div>
+
+@code {
+    WikiPage selectedPage;
+
+    WikiPage loadedPage;
+
+    String recognizedTaxobox;
+
+    String taxoboxXmlRepresentation;
+
+    String LoadedPageContent => loadedPage?.Content.Text ?? "";
+
+    private async Task<IEnumerable<WikiPage>> Search(String value, CancellationToken token)
+    {
+        var db = await DbFactory.CreateDbContextAsync();
+
+        return await db.Pages
+            .Where(p => p.Lang == "en" && p.Title.StartsWith(value))
+            //.Select(p => p.Title)
+            .Take(100)
+            .ToArrayAsync(token);
+    }
+
+    async Task HandleSelectedPageChanged(WikiPage page)
+    {
+        selectedPage = page;
+
+        await Load(page.Title);
+    }
+
+    async Task Load(String pageTitle)
+    {
+        var db = await DbFactory.CreateDbContextAsync();
+
+        var page = await db.Pages
+            .Include(p => p.Content)
+            .Where(p => p.Lang == "en" && p.Title == pageTitle)
+            .SingleAsync()
+            ;
+
+        loadedPage = page;
+
+        DoParsingWork();
+    }
+
+    void DoParsingWork()
+    {
+        var taxoboxParser = new HeuristicTaxoboxParser();
+
+        recognizedTaxobox = Try(() => taxoboxParser.GetTaxoboxWithHeuristicParsing(LoadedPageContent));
+
+        taxoboxXmlRepresentation = Try(() => XmlParsingReceiver.ParseToString(recognizedTaxobox));
+    }
+
+    String Try(Func<String> action)
+    {
+        try
+        {
+            return action();
+        }
+        catch (Exception ex)
+        {
+            return $"Exception: \n\n{ex.ToString()}";
+        }
+    }
+}

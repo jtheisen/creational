@@ -1,10 +1,7 @@
 ﻿using Creational.Migrations;
 using Humanizer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
-using Newtonsoft.Json;
 using NLog;
-using System.Buffers.Text;
 using System.Text;
 
 namespace Creational;
@@ -14,13 +11,13 @@ public class ContentExtractionWorker
     static Logger log = LogManager.GetCurrentClassLogger();
 
     private readonly IDbContextFactory<ApplicationDb> dbFactory;
-    private readonly TaxoboxParser taxoboxParser;
+    private readonly HeuristicTaxoboxParser taxoboxParser;
 
     public ContentExtractionWorker(IDbContextFactory<ApplicationDb> dbFactory)
     {
         this.dbFactory = dbFactory;
 
-        taxoboxParser = new TaxoboxParser();
+        taxoboxParser = new HeuristicTaxoboxParser();
     }
 
     public void ProcessAll(String lang)
@@ -142,7 +139,7 @@ public class ContentExtractionWorker
             Sha1 = page.Content.Sha1
         };
 
-        taxobox.Taxobox = taxoboxParser.GetTaxoboxWithRegex(text);
+        taxobox.Taxobox = taxoboxParser.GetTaxoboxWithHeuristicParsing(text);
 
         if (taxobox.Taxobox is null)
         {
@@ -163,7 +160,7 @@ public class ContentExtractionWorker
 
         var links = taxoboxParser.FindImageLinks(text);
 
-        WikiImageLink MakeLink(TaxoboxParser.ImageLink l)
+        WikiImageLink MakeLink(HeuristicTaxoboxParser.ImageLink l)
         {
             var fileName = l.fileName;
 

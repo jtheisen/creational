@@ -41,7 +41,7 @@ public class WikiDumpImporter
             // some others that may be interesting, such as "paraphyletic group" and "hybridbox".
             var haveTaxobox =
                 text.Contains("taxobox", StringComparison.InvariantCultureIgnoreCase)
-                | text.Contains("speciesobox", StringComparison.InvariantCultureIgnoreCase);
+                | text.Contains("speciesbox", StringComparison.InvariantCultureIgnoreCase);
 
             var isRedirect = redirectParser.IsRedirect(text, out var redirectTitle);
 
