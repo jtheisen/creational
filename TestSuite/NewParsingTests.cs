@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -12,12 +8,12 @@ namespace Creational;
 public class NewParsingTests
 {
     [DataRow("""foo""", """foo""")]
-    [DataRow("""<lang><de /><foo /></lang>""", """{{lang|de|foo}}""")]
+    [DataRow("""<lang><arg>de</arg><arg>foo</arg></lang>""", """{{lang|de|foo}}""")]
     [DataRow("""<a><_1>Lifeform</_1></a>""", """[[Lifeform]]""")]
     [DataRow("""<a><_1>Lifeform</_1><_2>the root</_2></a>""", """[[Lifeform|the root]]""")]
     [DataRow("""
         <Taxobox>
-            <x>Anguilla-anguilla 1.jpg</x>
+            <arg key="x">Anguilla-anguilla 1.jpg</arg>
         </Taxobox>
         """, """
                 {{Taxobox
@@ -25,7 +21,7 @@ public class NewParsingTests
         }}
         """)]
     [DataRow("""
-        dirt<Taxobox><x>Anguilla-anguilla 1.jpg</x></Taxobox>dirt
+        dirt<Taxobox><arg key="x">Anguilla-anguilla 1.jpg</arg></Taxobox>dirt
         """, """
         dirt
                 {{Taxobox
@@ -35,8 +31,8 @@ public class NewParsingTests
         """)]
     [DataRow("""
         <Taxobox>
-            <Taxon_Name>Storchschnäbel</Taxon_Name>
-            <Taxon2_Name>Storchschnabelgewächse</Taxon2_Name>
+            <arg key="Taxon_Name">Storchschnäbel</arg>
+            <arg key="Taxon2_Name">Storchschnabelgewächse</arg>
         </Taxobox>
         """, """
         {{Taxobox
@@ -46,13 +42,13 @@ public class NewParsingTests
         """)]
     [DataRow("""
         <Taxobox>
-            <Taxon_Name>Storchschnäbel</Taxon_Name>
-            <Subbox>
+            <arg key="Taxon_Name">Storchschnäbel</arg>
+            <arg key="Subbox">
                 <Speciesbox>
-                    <Taxon>foo</Taxon>
-                    <Name>bar</Name>
+                    <arg key="Taxon">foo</arg>
+                    <arg key="Name">bar</arg>
                 </Speciesbox>
-            </Subbox>
+            </arg>
         </Taxobox>
         """, """
         {{Taxobox
@@ -65,9 +61,9 @@ public class NewParsingTests
         """)]
     [DataRow("""
         <Taxobox>
-            <Taxon_Name>Storchschnäbel</Taxon_Name>
-            <Taxon2_Name>Storchschnabelgewächse</Taxon2_Name>
-            <Bildbeschreibung>(''<lang><la /><Geranium_pratense /></lang>'')</Bildbeschreibung>
+            <arg key="Taxon_Name">Storchschnäbel</arg>
+            <arg key="Taxon2_Name">Storchschnabelgewächse</arg>
+            <arg key="Bildbeschreibung">(''<lang><arg>la</arg><arg>Geranium_pratense</arg></lang>'')</arg>
         </Taxobox>
         """, """
         {{Taxobox
@@ -78,15 +74,15 @@ public class NewParsingTests
         """)]
     [DataRow("""
         <Taxobox>
-            <Taxon_Name>Storchschnäbel</Taxon_Name>
-            <Taxon_Autor>
+            <arg key="Taxon_Name">Storchschnäbel</arg>
+            <arg key="Taxon_Autor">
                 <a>
                     <_1>Carl von Linné</_1>
                     <_2>L.</_2>
                 </a>
-            </Taxon_Autor>
-            <Taxon2_Name>Storchschnabelgewächse</Taxon2_Name>
-            <Bildbeschreibung><a><_1>Wiesen-Storchschnabel</_1></a>(''<lang><la /><Geranium_pratense /></lang>'')</Bildbeschreibung>
+            </arg>
+            <arg key="Taxon2_Name">Storchschnabelgewächse</arg>
+            <arg key="Bildbeschreibung"><a><_1>Wiesen-Storchschnabel</_1></a>(''<lang><arg>la</arg><arg>Geranium_pratense</arg></lang>'')</arg>
         </Taxobox>
         """, """
         {{Taxobox
