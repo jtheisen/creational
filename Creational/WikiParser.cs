@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
+﻿using Creational.Migrations;
+using Humanizer;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Xml.Linq;
 
 namespace Creational;
@@ -399,64 +401,6 @@ public class WikiParser
         }
     }
 
-    //void ParseTemplateLines0()
-    //{
-    //    while (true)
-    //    {
-    //        var i = p;
-
-    //        while (input.Length > i && Char.IsWhiteSpace(input[i])) ++i;
-
-    //        if (input.Length <= i) Throw("Unexpected end of unclosed template");
-
-    //        var c = input[i];
-
-    //        switch (c)
-    //        {
-    //            case '|':
-    //                break;
-    //            case '}':
-    //                if (input.Length <= i + 1 || input[i + 1] != '}')
-    //                {
-    //                    Throw("Got '}' on inner template context, but it wasn't followed up by a second '}'", i);
-    //                }
-
-    //                p = i;
-    //                return;
-    //            default:
-    //                Throw($"Expected '|' to indicate a key-value pair, but got '{c}'", i);
-    //                break;
-    //        }
-
-    //        var ei = input.IndexOfAny(TemplateContentTerminationCharacter, i + 1);
-
-    //        if (ei < 0) Throw("Expected to find a character to terminate key", ei);
-
-    //        receiver.AddKey(new Range(i + 1, ei));
-
-    //        p = ei;
-
-    //        switch (input[ei])
-    //        {
-    //            case '|':
-    //                break;
-    //            case '}':
-    //                if (input.Length <= p + 1 || input[p + 1] != '}')
-    //                {
-    //                    Throw("Got '}' on inner template context, but it wasn't followed up by a second '}'", i);
-    //                }
-
-    //                break;
-    //            case '=':
-    //                ++p;
-    //                ParseWikiString("|");
-    //                break;
-    //        }
-
-    //        receiver.EndValue(new Range(ei, p));
-    //    }
-    //}
-
     void Throw(String message, Int32? pos = null)
     {
         var cn = 10;
@@ -467,5 +411,68 @@ public class WikiParser
         var si = Math.Min(input.Length, p + cn);
 
         throw new ParsingException(message, $"at >{input[pi..p]}*{input[p..si]}<");
+    }
+}
+
+
+public static class WikiParserExtensions
+{
+    public static void FillByWikiParser(this ParsingResult result, String text)
+    {
+        XElement rootElement = null;
+
+        try
+        {
+            rootElement = XmlParsingReceiver.Parse(text);
+
+            FillInternal(result, rootElement);
+        }
+        catch (Exception e)
+        {
+            result.Exception = e.Message;
+        }
+    }
+
+    static String[] ValidTaxoboxNames = new[] { "Taxobox", "Automatic_taxobox", "Speciesbox" };
+
+    static void FillInternal(ParsingResult result, XElement rootElement)
+    {
+        var rootChildren = rootElement.Elements();
+
+        if (rootChildren.Count() != 1) throw new Exception($"Root child has {rootChildren.Count()} children, expected only one, the taxobox");
+
+        var taxoboxElement = rootElement.Elements().Single();
+
+        var taxoboxName = taxoboxElement.Name.LocalName;
+
+        if (!ValidTaxoboxNames.Contains(taxoboxName)) throw new Exception($"Unexpected taxobox name: {taxoboxName}");
+
+        var taxoboxEntries = new List<TaxoboxEntry>();
+
+        var knownKeys = new HashSet<String>();
+
+        foreach (var line in taxoboxElement.Elements())
+        {
+            var key = line.Attribute("key")?.Value;
+
+            if (key is null) throw new Exception($"Taxobox has keyless argument");
+
+            if (!knownKeys.Add(key))
+            {
+                result.HasDuplicateTaxoboxEntries = true;
+
+                continue;
+            }
+
+            if (key.Length > 60) throw new Exception("Taxobox line key too long");
+
+            var value = line.Value;
+
+            taxoboxEntries.Add(new TaxoboxEntry { Lang = result.Lang, Title = result.Title, Key = key, Value = value.Truncate(80) });
+        }
+
+        result.WithTaxobox = taxoboxEntries.Count > 0;
+        result.TemplateName = taxoboxName;
+        result.TaxoboxEntries = taxoboxEntries;
     }
 }

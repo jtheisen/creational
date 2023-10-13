@@ -52,9 +52,9 @@ var siteArchiveWriter = serviceProvider.GetRequiredService<SiteArchiveWriter>();
 
 var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 
-//importer.Import(fileName, lang, dryRun: false);
+//importer.Import(fileName, lang, skip: 0, dryRun: false);
 
-extractionWorker.ProcessAll(lang);
+//extractionWorker.ProcessAll(lang);
 parsingWorker.ProcessAll(lang);
 //analyzer.Analyze(lang);
 

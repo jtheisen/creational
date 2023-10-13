@@ -34,10 +34,18 @@ public class TaxoboxParsingWorker
 
         var parsingErrors = 0;
 
-        var parsingResults = (
-            from p in pages
-            select ParseTaxobox(p, ref parsingErrors)
-        ).ToArray();
+        var i = 0;
+
+        var parsingResults = new List<ParsingResult>();
+
+        foreach (var page in pages)
+        {
+            ++i;
+
+            parsingResults.Add(ParseTaxobox(page, ref parsingErrors));
+
+            if (i % 1000 == 0) log.Info("Parsed {i}K taxoboxes", i);
+        }
 
         var parsingErrorReport = String.Join("\n ",
             from r in parsingResults
@@ -54,10 +62,12 @@ public class TaxoboxParsingWorker
             if (result.Exception == null)
             {
                 page.Step = Step.Finished;
+                page.StepError = null;
             }
             else
             {
                 page.Step = Step.ToParseTaxobox.AsFailedStep();
+                page.StepError = result.Exception;
             }
         }
 
@@ -112,7 +122,18 @@ where r.Lang = {lang}
 
         try
         {
-            taxoboxParser.GetEntries(result, taxobox);
+            //taxoboxParser.ParseIntoParsingResult(result, taxobox); // old version
+            result.FillByWikiParser(taxobox); // new version
+
+            result.HasTruncationIssue = false;
+
+            if (result.Exception is null)
+            {
+                // Used to be in ParseIntoParsingResult (formerly GetEntries) and needs adjusting too
+                result.TaxonomyEntries = taxoboxParser.GetTaxonomyEntries(result.TaxoboxEntries, out var haveTruncationIssue);
+
+                result.HasTruncationIssue = haveTruncationIssue;
+            }
         }
         catch (Exception ex)
         {

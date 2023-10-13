@@ -1,6 +1,7 @@
 ﻿using Humanizer;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using static Creational.HeuristicTaxoboxParser;
 
 namespace Creational;
 
@@ -141,7 +142,7 @@ public class HeuristicTaxoboxParser
         return text.Substring(2, i - 2).Trim();
     }
 
-    public void GetEntries(ParsingResult result, String text)
+    public void ParseIntoParsingResult(ParsingResult result, String text)
     {
         Sanitize(ref text);
 
@@ -169,6 +170,15 @@ public class HeuristicTaxoboxParser
             taxoboxEntries.Add(new TaxoboxEntry { Lang = result.Lang, Title = result.Title, Key = line.key, Value = line.value.Truncate(80) });
         }
 
+        result.WithTaxobox = taxoboxEntries.Count > 0;
+        result.TemplateName = templateName;
+        result.TaxoboxEntries = taxoboxEntries;
+    }
+
+    public ICollection<TaxonomyEntry> GetTaxonomyEntries(IEnumerable<TaxoboxEntry> taxoboxEntries, out Boolean haveTruncationIssue)
+    {
+        haveTruncationIssue = false;
+
         var taxonomyEntries = new TaxonomyEntry[10];
 
         var taxonomyEntriesToWrite = new List<TaxonomyEntry>();
@@ -176,12 +186,7 @@ public class HeuristicTaxoboxParser
         {
             if (!entry.Key.StartsWith("taxon", StringComparison.InvariantCultureIgnoreCase)) continue;
 
-            ParseAndFillTaxoEntry(taxonomyEntries, entry, out var haveTruncationIssue);
-
-            if (haveTruncationIssue)
-            {
-                result.HasTruncationIssue = true;
-            }
+            ParseAndFillTaxoEntry(taxonomyEntries, entry, out haveTruncationIssue);
         }
 
         foreach (var te in taxonomyEntries)
@@ -191,10 +196,7 @@ public class HeuristicTaxoboxParser
             taxonomyEntriesToWrite.Add(te);
         }
 
-        result.WithTaxobox = taxoboxEntries.Count > 0;
-        result.TemplateName = templateName;
-        result.TaxoboxEntries = taxoboxEntries;
-        result.TaxonomyEntries = taxonomyEntriesToWrite;
+        return taxonomyEntries;
     }
 
     public String ParseEntriesForTesting(String text)

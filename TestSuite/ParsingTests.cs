@@ -169,7 +169,7 @@ public class ParsingTests
     {
         var result = new ParsingResult();
 
-        parser.GetEntries(result, original);
+        parser.ParseIntoParsingResult(result, original);
 
         var actual = String.Join("\n", result.TaxonomyEntries.Select(e => $"{e.Name},{e.NameLocal},{e.Rank}"));
 

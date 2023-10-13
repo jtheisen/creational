@@ -125,7 +125,7 @@ public class WikiPageProcessor
 
             try
             {
-                taxoboxParser.GetEntries(parsed, text);
+                taxoboxParser.ParseIntoParsingResult(parsed, text);
             }
             catch (Exception ex)
             {
