@@ -336,6 +336,10 @@ public class ApplicationDb : DbContext
             .HasKey(e => new { e.Lang, e.Title })
             ;
         modelBuilder.Entity<WikiPage>()
+            .HasIndex(e => new { e.Lang, e.Id })
+            .IsUnique()
+            ;
+        modelBuilder.Entity<WikiPage>()
             .HasIndex(e => new { e.Lang, e.Step, e.Type })
             ;
         modelBuilder.Entity<WikiPage>()

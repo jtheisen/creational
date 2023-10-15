@@ -20,15 +20,22 @@ public class TaxoboxParsingWorker
 
     public void ProcessAll(String lang)
     {
+    }
+
+    public void ProcessBatch(String lang, Int32 batchSize = 1000)
+    {
         var db = dbFactory.CreateDbContext();
 
         var pages = db.Pages
             .Include(p => p.Taxobox)
             .Where(p => p.Lang == lang && p.Step == Step.ToParseTaxobox && p.Type == PageType.Content)
+            .OrderBy(p => p.Lang)
+            .ThenBy(p => p.Step)
+            .Take(batchSize)
             .ToArray()
             ;
 
-        log.Info("Taxoboxes loaded ({count})", pages.Length);
+        log.Info("Taxobox batch loaded ({count})", pages.Length);
 
         if (pages.Length == 0) return;
 
