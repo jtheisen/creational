@@ -20,51 +20,93 @@ public class TaxoboxParsingWorker
 
     public void ProcessAll(String lang)
     {
+        var (processed, _, total) = GetPageStats(lang);
+
+        while (true)
+        {
+            var justProcessed = ProcessBatch(lang);
+
+            if (justProcessed == 0) break;
+
+            processed += justProcessed;
+
+            log.Info($"Parsed {processed} of {total} pages", processed, total);
+        }
+
+        LogParsingSummary(lang);
     }
 
-    public void ProcessBatch(String lang, Int32 batchSize = 1000)
+    void LogParsingSummary(String lang)
     {
         var db = dbFactory.CreateDbContext();
 
-        var pages = db.Pages
+        var parsingResultSummary = (
+            from r in db.ParsingResults
+            where r.Lang == lang
+            group r by r.Exception into g
+            select new { Exception = g.Key, Count = g.Count(), Sample = g.First().Title }
+        ).ToArray();
+
+        var report = String.Join("\n ", from s in parsingResultSummary select $"{s.Count:d}: {s.Exception ?? "(fine)"}, eg. '{s.Sample}'");
+
+        log.Info("All parsed results report:\n\n {parsingErrorReport}");
+    }
+
+    IQueryable<WikiPage> GetPageQuery(ApplicationDb db, String lang)
+    {
+        return db.Pages.Where(p => p.Lang == lang && p.Type == PageType.Content);
+    }
+
+    public (Int32 alreadyParsed, Int32 inError, Int32 total) GetPageStats(String lang)
+    {
+        var db = dbFactory.CreateDbContext();
+
+        var inParsingError = GetPageQuery(db, lang).Count(p => p.Step == Step.ToParseTaxobox.AsFailedStep());
+        var toParse = GetPageQuery(db, lang).Count(p => p.Step == Step.ToParseTaxobox);
+        var alreadyParsed = GetPageQuery(db, lang).Count(p => p.Step > Step.ToParseTaxobox);
+
+        return (alreadyParsed, inParsingError, toParse + inParsingError + alreadyParsed);
+    }
+
+    public Int32 ProcessBatch(String lang, Int32 batchSize = 1000)
+    {
+        var db = dbFactory.CreateDbContext();
+
+        var pages = GetPageQuery(db, lang)
+            .Where(p => p.Step == Step.ToParseTaxobox)
+            .Include(p => p.Parsed)
             .Include(p => p.Taxobox)
-            .Where(p => p.Lang == lang && p.Step == Step.ToParseTaxobox && p.Type == PageType.Content)
             .OrderBy(p => p.Lang)
             .ThenBy(p => p.Step)
             .Take(batchSize)
             .ToArray()
             ;
 
-        log.Info("Taxobox batch loaded ({count})", pages.Length);
+        log.Debug("Taxobox batch loaded ({count})", pages.Length);
 
-        if (pages.Length == 0) return;
+        if (pages.Length == 0) return 0;
+
+        using var transaction = db.Database.BeginTransaction();
+
+        var currentParsingResults = from p in pages where p.Parsed != null select p.Parsed;
+
+        db.ParsingResults.RemoveRange(currentParsingResults);
+
+        db.SaveChanges();
+
+        if (currentParsingResults.Count() != 0) throw new Exception("Expected to no longer have any parsing results");
 
         var parsingErrors = 0;
 
-        var i = 0;
-
-        var parsingResults = new List<ParsingResult>();
-
-        foreach (var page in pages)
-        {
-            ++i;
-
-            parsingResults.Add(ParseTaxobox(page, ref parsingErrors));
-
-            if (i % 1000 == 0) log.Info("Parsed {i}K taxoboxes", i);
-        }
-
-        var parsingErrorReport = String.Join("\n ",
-            from r in parsingResults
-            group r by r.Exception into g
-            select $"{g.Count():d}: {g.Key ?? "(fine)"}, eg. '{g.First().Title}'"
-        );
-
-        log.Info($"Taxoboxes parsed ({parsingErrors} parsing errors):\n\n {parsingErrorReport}\n");
+        var parsingResults = (
+            from p in pages
+            select ParseTaxobox(p, ref parsingErrors)
+        ).ToArray();
 
         foreach (var result in parsingResults)
         {
             var page = result.Page;
+            page.Parsed = result;
 
             if (result.Exception == null)
             {
@@ -78,28 +120,13 @@ public class TaxoboxParsingWorker
             }
         }
 
-        using var transaction = db.Database.BeginTransaction();
-
-        db.Database.ExecuteSqlInterpolated(@$"
-delete r
-from ParsingResults r
-join Pages p on r.Title = p.Title and p.Step = {Step.ToParseTaxobox} and p.Type = {PageType.Content}
-where r.Lang = {lang}
-");
-
-        log.Info("Saving steps");
-
         db.SaveChanges();
 
-        db.ParsingResults.AddRange(parsingResults);
-
-        log.Info("Saving results");
-
-        db.SaveChanges();
-
-        log.Info("Changes saved");
+        log.Debug("Changes saved");
 
         transaction.Commit();
+
+        return pages.Length;
     }
 
 

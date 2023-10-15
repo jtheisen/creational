@@ -196,7 +196,7 @@ public class HeuristicTaxoboxParser
             taxonomyEntriesToWrite.Add(te);
         }
 
-        return taxonomyEntries;
+        return taxonomyEntriesToWrite;
     }
 
     public String ParseEntriesForTesting(String text)
