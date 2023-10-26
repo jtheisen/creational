@@ -36,7 +36,10 @@ public class WikiDumpImporter
         }
     }
 
-    public void Import(String fileName, String lang, Int32 skip = 0, Boolean dryRun = false)
+    static String TaxoTemplatePrefix = "Template:Taxonomy/";
+
+    public void Import(
+        String fileName, String lang, Int32 skip = 0, Boolean dryRun = false, PageType? updateOnly = null, TextWriter titlesWriter = null)
     {
         var fileLength = new FileInfo(fileName).Length;
 
@@ -53,6 +56,19 @@ public class WikiDumpImporter
             var rev = element.Revision;
             var text = rev.Text;
 
+            // There are some incorrectly cased entries which can
+            // hopefully all be ignored.
+
+            var hasCaseIssue = title.Length > 0 && Char.IsLower(title[0]);
+
+            var isParaHoxozoaException =
+                title.Equals("Template:Taxonomy/Parahoxozoa");
+
+            var isTaxoTemplate =
+                title.Length > TaxoTemplatePrefix.Length &&
+                title.StartsWith(TaxoTemplatePrefix) &&
+                Char.IsUpper(title[TaxoTemplatePrefix.Length]);
+
             // also covers "automatic taxobox, subspeciesbox, etc.", but doesn't cover
             // some others that may be interesting, such as "paraphyletic group" and "hybridbox".
             var haveTaxobox =
@@ -67,8 +83,11 @@ public class WikiDumpImporter
             }
 
             var type =
+                isParaHoxozoaException ? PageType.Ignored :
+                hasCaseIssue ? PageType.Ignored :
                 isRedirect ? PageType.Redirect :
                 haveTaxobox ? PageType.Content :
+                isTaxoTemplate ? PageType.TaxoTemplate :
                 PageType.Ignored
                 ;
 
@@ -93,6 +112,31 @@ public class WikiDumpImporter
 
         log.Info($"Starting import of {fileName}");
 
+        // !!! temporary selection
+        String[] missingNames = new[] { "core eudicots", "parahoxozoa", "core genistoids" };
+
+        Boolean ShouldUpdatePage(WikiPage page)
+        {
+            // !!! temporary selection
+            if (page.Type == PageType.TaxoTemplate)
+            {
+                var suffix = page.Title.Substring(TaxoTemplatePrefix.Length);
+                if (missingNames.FirstOrDefault(n => n.Equals(suffix, StringComparison.InvariantCultureIgnoreCase)) == null)
+                {
+                    return false;
+                }
+                log.Info("Got one: {name}", suffix);
+            }
+
+            if (page.Type == PageType.Ignored) return false;
+
+            if (updateOnly.HasValue && updateOnly != page.Type) return false;
+
+            return true;
+        }
+
+        var hadTaxoTemplate = false;
+
         var i = 0;
         var persisted = 0;
         foreach (var element in elements)
@@ -108,15 +152,19 @@ public class WikiDumpImporter
                 continue;
             }
 
+            if (i % 1000 == 0) log.Info($"at #{i} with {persisted} persisted ({percent:d}% processed)");
+
             if (element is null) continue;
 
             var text = element.Revision.Text;
 
             var page = GetPage(element);
 
+            titlesWriter?.WriteLine(page.Title);
+
             if (dryRun) continue;
 
-            if (page.Type != PageType.Ignored)
+            if (ShouldUpdatePage(page))
             {
                 ++persisted;
 
@@ -168,12 +216,46 @@ public class WikiDumpImporter
                     }
                 }
                 while (hasFailed);
-            }
 
-            if (i % 1000 == 0) log.Info($"at #{i} with {persisted} persisted ({percent:d}% processed)");
+                if (page.Type == PageType.TaxoTemplate)
+                {
+                    hadTaxoTemplate = true;
+                }
+            }
         }
 
         log.Info($"Read {i} elements with {persisted} persisted");
-    }
 
+        if (hadTaxoTemplate)
+        {
+            var db = dbFactory.CreateDbContext();
+
+            db.Database.ExecuteSqlInterpolated(
+            $@"
+merge Taxoboxes t
+using (
+	select p.Lang, p.Title, c.Sha1, c.[Text]
+	from Pages p
+	join PageContents c on p.lang = c.lang and p.Title = c.Title
+	where p.[Type] = {(Int32)PageType.TaxoTemplate} and p.Lang = {lang} and p.Step >= {(Int32)Step.ToExtractContent}
+) s
+on (t.Lang = s.Lang and t.Title = s.Title)
+when matched then
+	update set Sha1 = s.Sha1, [Taxobox] = s.[Text]
+when not matched then
+	insert (Lang, Title, Sha1, [Taxobox])
+	values (s.Lang, s.Title, s.Sha1, s.[Text]);
+");
+
+            db.Database.ExecuteSqlInterpolated($@"
+    update p
+    set [Step] = {(Int32)Step.ToParseTaxobox}
+	from Pages p
+	join PageContents c on p.lang = c.lang and p.Title = c.Title
+	where p.[Type] = {(Int32)PageType.TaxoTemplate} and p.Lang = {lang} and p.Step >= {(Int32)Step.ToExtractContent}
+");
+
+            log.Info($"Updated taxobox rows for modified taxo template pages");
+        }
+    }
 }

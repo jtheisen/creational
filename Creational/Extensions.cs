@@ -10,7 +10,9 @@ namespace Creational;
 
 public static class Extensions
 {
-    public static Step AsFailedStep(this Step step) => (Step)(-(Int32)step);
+    public static Step AsFailedStep(this Step step) => (Step)(-(Int32)step.AsNormalStep());
+
+    public static Step AsNormalStep(this Step step) => (Step)Math.Abs((Int32)step);
 
     public static DataTable ToDataTable<T>(this IEnumerable<T> source)
         where T : class

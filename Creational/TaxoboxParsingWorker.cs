@@ -1,6 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Creational.Migrations;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using NLog;
+using static Creational.HeuristicTaxoboxParser;
 
 namespace Creational;
 
@@ -18,13 +20,20 @@ public class TaxoboxParsingWorker
         taxoboxParser = new HeuristicTaxoboxParser();
     }
 
-    public void ProcessAll(String lang)
+    public void ProcessAll(String lang, PageType? parseOnly = null)
     {
-        var (processed, _, total) = GetPageStats(lang);
+        var (processed, _, total) = GetPageStats(lang, parseOnly);
+
+        log.Info("# Parsing pages");
+
+        if (parseOnly.HasValue)
+        {
+            log.Info($"Restricting processing to {parseOnly}");
+        }
 
         while (true)
         {
-            var justProcessed = ProcessBatch(lang);
+            var justProcessed = ProcessBatch(lang, parseOnly);
 
             if (justProcessed == 0) break;
 
@@ -49,30 +58,41 @@ public class TaxoboxParsingWorker
 
         var report = String.Join("\n ", from s in parsingResultSummary select $"{s.Count:d}: {s.Exception ?? "(fine)"}, eg. '{s.Sample}'");
 
-        log.Info("All parsed results report:\n\n {parsingErrorReport}");
+        log.Info("All parsed results report:\n\n {report}", report);
     }
 
-    IQueryable<WikiPage> GetPageQuery(ApplicationDb db, String lang)
+    IQueryable<WikiPage> GetPageQuery(ApplicationDb db, String lang, PageType? parseOnly)
     {
-        return db.Pages.Where(p => p.Lang == lang && p.Type == PageType.Content);
+        var result = db.Pages.Where(p => p.Lang == lang);
+
+        if (parseOnly is PageType ot)
+        {
+            result = result.Where(p => p.Type == ot);
+        }
+        else
+        {
+            result = result.Where(p => p.Type >= PageType.Content && p.Type <= PageType.TaxoTemplate);
+        }
+
+        return result;
     }
 
-    public (Int32 alreadyParsed, Int32 inError, Int32 total) GetPageStats(String lang)
+    public (Int32 alreadyParsed, Int32 inError, Int32 total) GetPageStats(String lang, PageType? parseOnly)
     {
         var db = dbFactory.CreateDbContext();
 
-        var inParsingError = GetPageQuery(db, lang).Count(p => p.Step == Step.ToParseTaxobox.AsFailedStep());
-        var toParse = GetPageQuery(db, lang).Count(p => p.Step == Step.ToParseTaxobox);
-        var alreadyParsed = GetPageQuery(db, lang).Count(p => p.Step > Step.ToParseTaxobox);
+        var inParsingError = GetPageQuery(db, lang, parseOnly).Count(p => p.Step == Step.ToParseTaxobox.AsFailedStep());
+        var toParse = GetPageQuery(db, lang, parseOnly).Count(p => p.Step == Step.ToParseTaxobox);
+        var alreadyParsed = GetPageQuery(db, lang, parseOnly).Count(p => p.Step > Step.ToParseTaxobox);
 
         return (alreadyParsed, inParsingError, toParse + inParsingError + alreadyParsed);
     }
 
-    public Int32 ProcessBatch(String lang, Int32 batchSize = 1000)
+    public Int32 ProcessBatch(String lang, PageType? parseOnly, Int32 batchSize = 1000)
     {
         var db = dbFactory.CreateDbContext();
 
-        var pages = GetPageQuery(db, lang)
+        var pages = GetPageQuery(db, lang, parseOnly)
             .Where(p => p.Step == Step.ToParseTaxobox)
             .Include(p => p.Parsed)
             .Include(p => p.Taxobox)
@@ -116,7 +136,7 @@ public class TaxoboxParsingWorker
             else
             {
                 page.Step = Step.ToParseTaxobox.AsFailedStep();
-                page.StepError = result.Exception;
+                page.StepError = SimplifyErrorMessage(result.Exception);
             }
         }
 
@@ -137,6 +157,12 @@ public class TaxoboxParsingWorker
         result.Lang = page.Lang;
         result.Title = page.Title;
         result.Page = page;
+        result.HasTruncationIssue = false;
+
+        if (IsHandledTaxoTemplateRoot(result))
+        {
+            return result;
+        }
 
         if (page.Taxobox == null)
         {
@@ -156,17 +182,16 @@ public class TaxoboxParsingWorker
 
         try
         {
-            //taxoboxParser.ParseIntoParsingResult(result, taxobox); // old version
-            result.FillByWikiParser(taxobox); // new version
-
-            result.HasTruncationIssue = false;
-
-            if (result.Exception is null)
+            switch (page.Type)
             {
-                // Used to be in ParseIntoParsingResult (formerly GetEntries) and needs adjusting too
-                result.TaxonomyEntries = taxoboxParser.GetTaxonomyEntries(result.TaxoboxEntries, out var haveTruncationIssue);
-
-                result.HasTruncationIssue = haveTruncationIssue;
+                case PageType.TaxoTemplate:
+                    ProcessTaxotemplate(result, taxobox);
+                    break;
+                case PageType.Content:
+                    ProcessTaxobox(result, taxobox);
+                    break;
+                default:
+                    throw new Exception($"Unknown type {page.Type}");
             }
         }
         catch (Exception ex)
@@ -177,5 +202,117 @@ public class TaxoboxParsingWorker
         }
 
         return result;
+    }
+
+    Boolean IsHandledTaxoTemplateRoot(ParsingResult result)
+    {
+        if (result.Lang.Equals("en", StringComparison.InvariantCultureIgnoreCase) &&
+            result.Title.Equals("Template:Taxonomy/Life", StringComparison.InvariantCultureIgnoreCase))
+        {
+            result.TaxoTemplateValues = new TaxoTemplateValues
+            {
+                Rank = "root"
+            };
+
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    void ProcessTaxotemplate(ParsingResult result, String taxotemplate)
+    {
+        taxoboxParser.ParseIntoParsingResult(result, PrepareTaxoTemplate(taxotemplate));
+
+        String GetValue(String key, Boolean toleratePipes = false)
+        {
+            var value = result.TaxoboxEntries
+                .FirstOrDefault(e => e.Key.Equals(key, StringComparison.InvariantCultureIgnoreCase))
+                ?.Value;
+
+            if (!toleratePipes && value?.Contains('|') == true)
+            {
+                throw new Exception($"Value contained '|', likely a parsing error");
+            }
+
+            return value;
+        }
+
+        var values = result.TaxoTemplateValues = new TaxoTemplateValues
+        {
+            Rank = GetValue("rank"),
+            Parent = GetValue("parent"),
+            SameAs = GetValue("same_as") ?? GetValue("same as")
+        };
+        
+        if (GetValue("link", true) is String link)
+        {
+            values.FillLinkValues(link);
+        }
+    }
+
+    void ProcessTaxobox(ParsingResult result, String taxobox)
+    {
+        result.FillByWikiParser(taxobox); // new version
+
+        if (result.Exception is null)
+        {
+            // Used to be in ParseIntoParsingResult (formerly GetEntries) and needs adjusting too
+            result.TaxonomyEntries = taxoboxParser.GetTaxonomyEntries(result.TaxoboxEntries, out var haveTruncationIssue);
+
+            result.HasTruncationIssue = haveTruncationIssue;
+        }
+    }
+
+    static readonly String TaxoTemplateRedirectPrefix = "#REDIRECT";
+    static readonly String TaxoTemplatePrefix = "{{Don't edit this line {{{machine code|}}}\n";
+    static readonly String TaxoTemplateReplacementPrefix = "{{Taxotemplate\n";
+
+    String PrepareTaxoTemplate(String taxobox)
+    {
+        // only necessary when text was inserted with SSMS
+        taxobox = taxobox.ReplaceLineEndings("\n");
+
+        if (taxobox.StartsWith(TaxoTemplateRedirectPrefix)) throw new Exception($"Taxo template is a redirect");
+
+        var obi = taxobox.IndexOf(TaxoTemplatePrefix);
+
+        if (obi < 0)
+        {
+            throw new Exception($"Taxo template does not contain expected taxotemplate prefix");
+        }
+        else if (obi > 0)
+        {
+            taxobox = taxobox.Substring(obi);
+        }
+
+        taxobox = TaxoTemplateReplacementPrefix + taxobox.Substring(TaxoTemplatePrefix.Length);
+
+        var cbi = taxobox.LastIndexOf("}}");
+
+        if (cbi < 0) throw new Exception("Taxo template unexpectedly did not contain a closing '}}'");
+
+        taxobox = taxobox[0..(cbi + 2)];
+
+        if (taxobox[taxobox.Length - 3] != '\n')
+        {
+            taxobox = taxobox.TrimEnd('}') + "\n}}";
+        }
+
+        return taxobox;
+    }
+
+    String SimplifyErrorMessage(String message)
+    {
+        var i = message.IndexOfAny("(\"".ToArray());
+
+        if (i >= 0)
+        {
+            message = message.Substring(0, i) + "...";
+        }
+
+        return message;
     }
 }

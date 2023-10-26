@@ -38,6 +38,8 @@ IServiceProvider serviceProvider;
 var deFileName = @"c:\users\jens\downloads\dewiki-20230501-pages-articles.xml.bz2";
 var enFileName = @"c:\users\jens\downloads\enwiki-20231001-pages-articles.xml.bz2";
 
+var titlesFileName = @"c:\users\jens\downloads\enwiki-20231001-pages-articles.titles.txt";
+
 var lang = "en";
 var fileName = enFileName;
 
@@ -52,10 +54,15 @@ var siteArchiveWriter = serviceProvider.GetRequiredService<SiteArchiveWriter>();
 
 var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 
-//importer.Import(fileName, lang, skip: 0, dryRun: false);
+//using var titlesFileStream = new FileStream(titlesFileName, FileMode.Create, FileAccess.Write);
+//using var titlesWriter = new StreamWriter(titlesFileStream);
+
+//importer.Import(fileName, lang, skip: 0, dryRun: true, updateOnly: PageType.TaxoTemplate);
 
 //extractionWorker.ProcessAll(lang);
-parsingWorker.ProcessAll(lang);
+
+parsingWorker.ProcessAll(lang, parseOnly: PageType.TaxoTemplate);
+//analyzer.AnalyzeTaxoTemplates(lang);
 //analyzer.Analyze(lang);
 
 //taxoboxImageCurator.Curate();

@@ -1,6 +1,8 @@
 ﻿using Creational.Migrations;
 using Humanizer;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System.Net;
+using System.Text;
 using System.Xml.Linq;
 
 namespace Creational;
@@ -22,7 +24,7 @@ public abstract class WikiParsingReceiver
 
     protected String GetRange(Range range) => Text[range].Trim();
 
-    public virtual void AddText(Range text) { }
+    public virtual void AddText(String decodedText, Range textRange) { }
 
     public virtual void OpenLink() { }
 
@@ -39,6 +41,12 @@ public abstract class WikiParsingReceiver
     public virtual void CloseArgument() { }
 
     public virtual void CloseTemplate(Range template) { }
+
+    public virtual void OpenXmlTag(String name) { }
+
+    public virtual void AddXmlAttribute(String name, String value) { }
+
+    public virtual void CloseXmlTag(String name, Range element) { }
 }
 
 public class XmlParsingReceiver : WikiParsingReceiver
@@ -91,9 +99,9 @@ public class XmlParsingReceiver : WikiParsingReceiver
         base.Stop(range);
     }
 
-    public override void AddText(Range text)
+    public override void AddText(String decodedText, Range textRange)
     {
-        Top.Add(GetRange(text).Trim());
+        Top.Add(decodedText.Trim());
     }
 
     public override void OpenLink()
@@ -154,6 +162,21 @@ public class XmlParsingReceiver : WikiParsingReceiver
         Pop();
     }
 
+    public override void OpenXmlTag(String name)
+    {
+        stack.Push(new XElement(name));
+    }
+
+    public override void AddXmlAttribute(String name, String value)
+    {
+        Top.Add(new XAttribute(name, value));
+    }
+
+    public override void CloseXmlTag(String name, Range element)
+    {
+        Pop(name);
+    }
+
     String GetNameRange(Range range)
     {
         var name = GetRange(range).Trim().Replace(' ', '_');
@@ -174,6 +197,8 @@ public class WikiParser
 
     Int32 p;
 
+    Boolean HaveEndOfInput => p == input.Length - 1;
+
     public WikiParser(String input, WikiParsingReceiver receiver)
     {
         this.input = input;
@@ -189,11 +214,32 @@ public class WikiParser
         receiver.Stop(new Range(0, p));
     }
 
-    void FlushText(Int32 p)
+    void AssertMoreInput()
     {
-        receiver.AddText(new Range(this.p, p));
+        if (HaveEndOfInput) Throw("Unexpected end of input");
+    }
 
-        this.p = p;
+    Int32 LookBeyondWhitespace(String activityName)
+    {
+        for (var i = p; i < input.Length; ++i)
+        {
+            if (!Char.IsWhiteSpace(input[i])) return i;
+        }
+
+        Throw($"Unexpected end of input while {activityName}");
+
+        return p;
+    }
+
+    void FlushText(Int32 i)
+    {
+        var textRange = new Range(this.p, i);
+
+        var decodedText = WikiTextDecoder.DecodeText(input[textRange]);
+
+        receiver.AddText(decodedText, textRange);
+
+        this.p = i;
     }
 
     Char GetNextChar(Int32 i)
@@ -224,6 +270,10 @@ public class WikiParser
 
                         i = p;
                     }
+                    else
+                    {
+                        Throw("Unexpected single '{' found");
+                    }
                     break;
                 case '}':
                     if (GetNextChar(i) == '}')
@@ -232,12 +282,30 @@ public class WikiParser
 
                         return;
                     }
+
+                    Throw("Unexpected single '}' found");
                     break;
                 case '[':
                     {
                         FlushText(i);
 
                         ParseLink();
+
+                        i = p;
+                    }
+                    break;
+                case '<':
+                    {
+                        FlushText(i);
+
+                        AssertMoreInput();
+
+                        if (input[i + 1] == '/')
+                        {
+                            return;
+                        }
+
+                        ParseMarkup();
 
                         i = p;
                     }
@@ -255,6 +323,203 @@ public class WikiParser
         }
 
         FlushText(i);
+    }
+
+    void ParseMarkup()
+    {
+        if (input[p] != '<') throw new Exception("Expected an opening tag to start with '<'");
+
+        if (input[p + 1] == '!')
+        {
+            if (input[p + 2] != '-' || input[p + 3] != '-') Throw("Expected '<!' to be followed by '--'");
+
+            ParseComment();
+        }
+        else
+        {
+            ParseElement();
+        }
+    }
+
+    void ParseComment()
+    {
+        if (!input[p..(p + 4)].StartsWith("<!--")) Throw("Expected a comment to start with '<!--'");
+
+        var i = input.IndexOf("-->", p + 4);
+
+        if (i < 0) Throw("Unabled to find end of comment");
+
+        p = i + 3;
+    }
+
+    void ParseElement()
+    {
+        var s = p;
+
+        var tagName = ParseOpeningTag(out var isSelfClosing);
+
+        if (!isSelfClosing)
+        {
+            ParseWikiString();
+
+            ParseClosingTag(tagName);
+        }
+
+        receiver.CloseXmlTag(tagName, new Range(s, p));
+    }
+
+    static String TagNameSpecialChars = "_-:.";
+
+    String LookAheadForTagname(Boolean expectName = true)
+    {
+        var n = input.Length;
+
+        for (var i = p; ; ++i)
+        {
+            if (i < n)
+            {
+                var c = input[i];
+
+                if (Char.IsLetterOrDigit(c)) continue;
+
+                if (TagNameSpecialChars.Contains(c)) continue;
+            }
+
+            if (i == p)
+            {
+                if (i == n)
+                {
+                    Throw($"Expected name character, but reached end of input");
+                }
+                else if (expectName)
+                {
+                    Throw($"Expected name character, but found '{input[p]}'");
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            return input.Substring(p, i - p);
+        }
+    }
+
+    String ParseOpeningTag(out Boolean isSelfClosing)
+    {
+        isSelfClosing = false;
+
+        if (input[p] != '<') throw new Exception("Expected an opening tag to start with '<'");
+
+        ++p;
+
+        p = LookBeyondWhitespace("parsing opening tag, leading whitespace");
+
+        var tagName = LookAheadForTagname();
+
+        p += tagName.Length;
+
+        receiver.OpenXmlTag(tagName);
+
+        ParseAttributes();
+
+        if (input[p] == '/')
+        {
+            ++p;
+
+            if (input[p] == '>')
+            {
+                isSelfClosing = true;
+
+                ++p;
+            }
+            else
+            {
+                Throw("Found '/' but no '>' followed to end the tag");
+            }
+        }
+        else if (input[p] == '>')
+        {
+            ++p;
+        }
+        else
+        {
+            Throw($"Expected opening tag to end with either '/>' or '>'");
+        }
+
+        AssertMoreInput();
+
+        return tagName;
+    }
+
+    void ParseClosingTag(String tagName)
+    {
+        if (input[p] != '<') throw new Exception("Expected a closing tag to start with '<'");
+        if (input[p + 1] != '/') throw new Exception("Expected a closing tag to start with '</'");
+
+        p += 2;
+
+        p = LookBeyondWhitespace("parsing closing tag");
+
+        var actualTagName = LookAheadForTagname();
+
+        if (tagName != actualTagName) Throw($"Expected element '{tagName}' to close, but got closing tag named '{actualTagName}'");
+
+        p += actualTagName.Length;
+
+        p = LookBeyondWhitespace("parsing closing tag");
+
+        if (input[p] != '>') Throw($"Expected closing tag to end with '>'");
+
+        ++p;
+    }
+
+    void ParseAttributes()
+    {
+        while (true)
+        {
+            p = LookBeyondWhitespace("parsing attributes, skipping to next attribute");
+
+            var attributeName = LookAheadForTagname(expectName: false);
+
+            if (attributeName == null)
+            {
+                return;
+            }
+
+            p += attributeName.Length;
+
+            p = LookBeyondWhitespace("parsing attribute, skipping to '='");
+
+            if (input[p] != '=') Throw("Expected '=' after attribute name");
+
+            ++p;
+
+            p = LookBeyondWhitespace("parsing attribute, skipping to '\"'");
+
+            var attributeValue = ParseAttributeValue();
+
+            receiver.AddXmlAttribute(attributeName, attributeValue);
+        }
+    }
+
+    String ParseAttributeValue()
+    {
+        if (input[p] != '"') throw new Exception("Expected an attribute value to start with '\"'");
+
+        AssertMoreInput();
+
+        var i = input.IndexOf('"', p + 1);
+
+        if (i < 0) Throw("No end of attribute value found");
+
+        var attributeValue = input.Substring(p + 1, i - p - 1);
+
+        p = i + 1;
+
+        AssertMoreInput();
+
+        return attributeValue;
     }
 
     static String InternalLinkStopChars = "]|";
@@ -376,7 +641,7 @@ public class WikiParser
 
         while (true)
         {
-            ParseWikiString("}|=");
+            ParseWikiString(hadEquals ? "}|" : "}|=");
 
             var c = input[p];
 
@@ -396,6 +661,9 @@ public class WikiParser
                     receiver.CloseArgument();
                     receiver.OpenArgument();
                     ++p;
+                    break;
+                default:
+                    Throw("Unexpected garbage in template");
                     break;
             }
         }
@@ -433,7 +701,7 @@ public static class WikiParserExtensions
         }
     }
 
-    static String[] ValidTaxoboxNames = new[] { "Taxobox", "Automatic_taxobox", "Speciesbox" };
+    static String[] ValidTaxoboxNames = new[] { "Taxotemplate", "Taxobox", "Automatic_taxobox", "Speciesbox" };
 
     static void FillInternal(ParsingResult result, XElement rootElement)
     {
@@ -475,4 +743,109 @@ public static class WikiParserExtensions
         result.TemplateName = taxoboxName;
         result.TaxoboxEntries = taxoboxEntries;
     }
+
+    public static void FillLinkValues(this TaxoTemplateValues values, String link)
+    {
+        var root = XmlParsingReceiver.Parse($"[[{link}]]");
+
+        var linkElement = root.Elements().Single("Expected link parsing result to have one link element");
+
+        var parts = linkElement.Elements().Select(e => e.Value).ToArray();
+
+        if (parts.Length == 1)
+        {
+            values.PageTitle = parts[0].TruncateUtf8(200);
+            values.Name = parts[0].TruncateUtf8(80);
+        }
+        else if (parts.Length == 2)
+        {
+            values.PageTitle = parts[0].TruncateUtf8(200);
+            values.Name = parts[1].TruncateUtf8(80);
+        }
+        else
+        {
+            throw new Exception($"Expected link to have one or two parts (got: '{link}')");
+        }
+    }
+
+    public static String StripFragment(String text)
+    {
+        var i = text.IndexOf('#');
+
+        if (i >= 0)
+        {
+            text = text.Substring(i);
+        }
+
+        return text;
+    }
+}
+
+public class WikiTextDecoder
+{
+    private readonly String input;
+
+    Int32 p = 0;
+
+    StringBuilder builder;
+
+    public WikiTextDecoder(String input)
+    {
+        this.input = input;
+        this.builder = new StringBuilder();
+    }
+
+    public static String DecodeText(String text)
+    {
+        var decoder = new WikiTextDecoder(text);
+
+        decoder.Decode();
+
+        return decoder.builder.ToString();
+    }
+
+    void Flush(Int32 i)
+    {
+        builder.Append(input[p..i]);
+
+        p = i;
+    }
+
+    Char GetChar(Int32 i) => i < input.Length ? input[i] : '\0';
+
+    void Decode()
+    {
+        Int32 i;
+
+        while ((i = input.IndexOf('&', p)) >= 0)
+        {
+            Flush(i);
+
+            ++i;
+
+            Char c;
+
+            while (Char.IsLetter(c = GetChar(i))) ++i;
+
+            if (c == ';')
+            {
+                ++i;
+
+                var entity = input[p..i];
+
+                var decoded = WebUtility.HtmlDecode(entity);
+
+                builder.Append(decoded);
+
+                p = i;
+            }
+            else
+            {
+                Flush(i);
+            }
+        }
+
+        Flush(input.Length);
+    }
+
 }

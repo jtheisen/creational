@@ -170,7 +170,6 @@ public class HeuristicTaxoboxParser
             taxoboxEntries.Add(new TaxoboxEntry { Lang = result.Lang, Title = result.Title, Key = line.key, Value = line.value.Truncate(80) });
         }
 
-        result.WithTaxobox = taxoboxEntries.Count > 0;
         result.TemplateName = templateName;
         result.TaxoboxEntries = taxoboxEntries;
     }

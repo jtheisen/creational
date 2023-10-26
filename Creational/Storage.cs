@@ -23,8 +23,9 @@ public enum Step
 public enum PageType
 {
     Ignored = 0,
-    Content = 1,
-    Redirect = 2
+    Redirect = 1,
+    Content = 2,
+    TaxoTemplate = 3
 }
 
 public class WikiPage
@@ -203,6 +204,8 @@ public class ParsingResult
 
     public Boolean WithTaxobox { get; set; }
 
+    public TaxoTemplateValues TaxoTemplateValues { get; set; }
+
     public ICollection<TaxoboxEntry> TaxoboxEntries { get; set; }
 
     public ICollection<TaxonomyEntry> TaxonomyEntries { get; set; }
@@ -224,6 +227,33 @@ public class TaxoboxEntry
 
     [StringLength(200)]
     public String Value { get; set; }
+}
+
+public class TaxoTemplateValues
+{
+    [StringLength(2)]
+    public String Lang { get; set; }
+
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    [StringLength(80)]
+    public String Rank { get; set; }
+
+    [StringLength(80)]
+    public String Parent { get; set; }
+
+    [StringLength(80)]
+    public String SameAs { get; set; }
+
+    [StringLength(200)]
+    public String PageTitle { get; set; }
+
+    [StringLength(80)]
+    public String Name { get; set; }
+
+    [CascadeDelete]
+    public ParsingResult ParsedPage { get; set; }
 }
 
 public class TaxonomyEntry
@@ -316,6 +346,7 @@ public class ApplicationDb : DbContext
     public DbSet<WikiTaxobox> Taxoboxes { get; set; }
 
     public DbSet<ParsingResult> ParsingResults { get; set; }
+    public DbSet<TaxoTemplateValues> TaxoTemplateValues { get; set; }
     public DbSet<TaxoboxEntry> TaxoboxEntries { get; set; }
     public DbSet<TaxonomyRelation> TaxonomyRelations { get; set; }
 
@@ -414,6 +445,15 @@ public class ApplicationDb : DbContext
             .HasOne(e => e.Page)
             .WithOne(e => e.Parsed)
             .HasForeignKey<ParsingResult>(e => new { e.Lang, e.Title })
+            ;
+
+        modelBuilder.Entity<TaxoTemplateValues>()
+            .HasKey(e => new { e.Lang, e.Title })
+            ;
+        modelBuilder.Entity<TaxoTemplateValues>()
+            .HasOne(e => e.ParsedPage)
+            .WithOne(e => e.TaxoTemplateValues)
+            .HasForeignKey<TaxoTemplateValues>(e => new { e.Lang, e.Title })
             ;
 
         modelBuilder.Entity<TaxoboxEntry>()

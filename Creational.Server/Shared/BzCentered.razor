@@ -1,0 +1,27 @@
+﻿<div class="d-flex flex-column @LayoutClass @AlignmentClass @Class">
+    <div style="flex-grow: 1"><span></span></div>
+    @ChildContent
+    <div style="flex-grow: 1.5"><span></span></div>
+    <div style="min-height: @ExtraBottomOffset"><span></span></div>
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+
+    [Parameter]
+    public Boolean Stretch { get; set; }
+
+    [Parameter]
+    public String Class { get; set; }
+
+    [Parameter]
+    public Boolean IsFlexItem { get; set; }
+
+    [Parameter]
+    public String ExtraBottomOffset { get; set; } = "0";
+
+    String LayoutClass => IsFlexItem ? "flex-1" : "absolute inset-0";
+
+    String AlignmentClass => Stretch ? "align-stretch" : "align-center";
+}

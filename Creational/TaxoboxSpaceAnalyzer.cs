@@ -1,5 +1,6 @@
 ﻿using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json.Linq;
 using NLog;
 using System.Data;
 
@@ -56,6 +57,257 @@ public class TaxoboxSpaceAnalyzer
         public override String ToString()
         {
             return $"{Page.Title} [{String.Join("; ", Names)}]";
+        }
+    }
+
+    public record TaxoTemplateTree(TaxoTemplateTreeNode Root, Int32 NoOfDescendants);
+
+    public class TaxoTemplateTreeNode
+    {
+        public static String Prefix = "Template:Taxonomy/";
+
+        public Int32 Level { get; set; }
+
+        public Boolean IsInitialized { get; set; }
+
+        public TaxoTemplateTreeNode Parent { get; set; }
+
+        public TaxoTemplateTreeNode Root { get; set; }
+
+        public String MissingParentName { get; set; }
+
+        public Int32 NoOfDescendants { get; set; }
+
+        public Boolean HasProperTitle { get; }
+
+        public String NameFromTitle { get; }
+
+        public Boolean IsAlias => Values.SameAs is not null;
+
+        public TaxoTemplateValues Values { get; }
+
+        public List<TaxoTemplateTreeNode> Nodes { get; }
+
+        public static String ExtractProperNameOrNot(String templateTitle)
+        {
+            if (templateTitle.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return templateTitle.Substring(Prefix.Length).ToLowerInvariant();
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public TaxoTemplateTreeNode(TaxoTemplateValues values)
+        {
+            Nodes = new List<TaxoTemplateTreeNode>();
+            Values = values;
+
+            if (ExtractProperNameOrNot(values.Title) is String nameFromTitle)
+            {
+                NameFromTitle = nameFromTitle;
+                HasProperTitle = true;
+            }
+            else
+            {
+                NameFromTitle = values.Title;
+            }
+        }
+
+        public IEnumerable<String> AllNames
+        {
+            get
+            {
+                yield return NameFromTitle;
+                yield return Values.Name;
+                yield return Values.Title;
+                yield return Values.PageTitle;
+            }
+        }
+
+        String OptionalParentSuffix => MissingParentName is not null ? $", missing parent '{MissingParentName}'" : "";
+        String DescendantsSummary => NoOfDescendants > 0 ? NoOfDescendants.ToString() : "leaf";
+
+        public override String ToString()
+        {
+            return $"{NameFromTitle}, {DescendantsSummary}{OptionalParentSuffix}";
+        }
+    }
+
+    public void AnalyzeTaxoTemplates(String lang)
+    {
+        log.Info($"Analyzing TaxoTemplates");
+
+        var db = dbContextFactory.CreateDbContext();
+
+        var allKnownTaxoTemplateNames = db.Pages
+            .Where(t => t.Lang == lang)
+            .Where(t => t.Title.StartsWith("Template:Taxonomy/"))
+            .Select(t => t.Title)
+            .ToArray()
+            .Select(t => TaxoTemplateTreeNode.ExtractProperNameOrNot(t))
+            .Where(t => t is not null)
+            .ToHashSet()
+            ;
+
+        var taxoTemplateValues = db.TaxoTemplateValues
+            .Where(t => t.Lang == lang)
+            .ToArray();
+
+        var titleToTaxoTemplateNode = taxoTemplateValues
+            .Select(v => new TaxoTemplateTreeNode(v))
+            .ToDictionary(n => n.NameFromTitle);
+
+        TaxoTemplateTreeNode GetNode(String title)
+        {
+            if (titleToTaxoTemplateNode.TryGetValue(title, out var node))
+            {
+                if (node.Values.SameAs is String sameAs)
+                {
+                    return GetNode(sameAs);
+                }
+                else
+                {
+                    return node;
+                }
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        var roots = new List<TaxoTemplateTreeNode>();
+
+        var stack = new Stack<TaxoTemplateTreeNode>();
+
+        void Initialize(TaxoTemplateTreeNode node)
+        {
+            if (node.IsInitialized) return;
+
+            if (node.IsAlias) throw new Exception("Aliases should never be initialized");
+
+            node.IsInitialized = true;
+
+            var parentTitle = node.Values.Parent?.ToLowerInvariant();
+
+            if (parentTitle is null)
+            {
+                roots.Add(node);
+            }
+            else if (GetNode(parentTitle) is not TaxoTemplateTreeNode parentNode)
+            {
+                roots.Add(node);
+                node.MissingParentName = parentTitle;
+            }
+            else
+            {
+                if (stack.Contains(parentNode))
+                {
+                    throw new Exception($"Circular reference found ('{node.NameFromTitle}' and '{parentNode.NameFromTitle}')");
+                }
+
+                node.Parent = parentNode;
+                parentNode.Nodes.Add(node);
+
+                stack.Push(node);
+
+                Initialize(parentNode);
+
+                stack.Pop();
+
+                node.Root = parentNode.Root;
+                node.Level = parentNode.Level + 1;
+            }
+        }
+
+        foreach (var node in titleToTaxoTemplateNode.Values)
+        {
+            if (node.Values.SameAs is not null) continue;
+
+            Initialize(node);
+        }
+
+        if (stack.Count > 0) throw new Exception($"Unexpected stack size");
+
+        void SetNumberOfDescendants(TaxoTemplateTreeNode node)
+        {
+            node.NoOfDescendants = node.Nodes.Count;
+
+            if (stack.Contains(node)) throw new Exception($"Unexpected cycle");
+
+            stack.Push(node);
+
+            foreach (var child in node.Nodes)
+            {
+                SetNumberOfDescendants(child);
+
+                node.NoOfDescendants += child.NoOfDescendants;
+            }
+
+            stack.Pop();
+        }
+
+        foreach (var root in roots)
+        {
+            SetNumberOfDescendants(root);
+        }
+
+        IEnumerable<(TaxoTemplateTreeNode node, String name)> FindNames(String name)
+        {
+            foreach (var node in titleToTaxoTemplateNode.Values)
+            {
+                foreach (var nodeName in node.AllNames)
+                {
+                    if (nodeName is null) continue;
+
+                    if (nodeName.Contains(name, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        yield return (node, nodeName);
+                    }
+                }
+            }
+        }
+
+        var firstRoots = roots.OrderByDescending(r => r.NoOfDescendants).Take(100).ToArray();
+
+
+
+        for (var i = 0; i < firstRoots.Length; ++i)
+        {
+            var root = firstRoots[i];
+
+            if (i == firstRoots.Length - 1)
+            {
+                log.Info("and more...");
+            }
+            else
+            {
+                log.Info(" - {item}", root);
+
+                if (root.MissingParentName is String mpn)
+                {
+                    if (allKnownTaxoTemplateNames.Contains(mpn))
+                    {
+                        log.Info("   have an unparsed parent candidate");
+                    }
+                    else
+                    {
+                        var (candidate, candidateName) = FindNames(mpn).FirstOrDefault();
+
+                        if (candidate is null)
+                        {
+                            log.Info("   no parent candidate");
+                        }
+                        else
+                        {
+                            log.Info("   - parent candidate: {candidate}", candidate);
+                        }
+                    }
+                }
+            }
         }
     }
 

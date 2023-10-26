@@ -1,58 +1,154 @@
 ﻿@page "/"
+@layout LtBroadLayout
 @inject IDbContextFactory<ApplicationDb> DbFactory
 
 <PageTitle>Search page</PageTitle>
 
+<style>
+    .selected {
+        background-color: #1E88E5 !important;
+    }
+
+        .selected > td {
+            color: white !important;
+        }
+
+            .selected > td .mud-input {
+                color: white !important;
+            }
+</style>
+
 @*<MudTextField @bind-Value="searchText" DebounceInterval="500" OnDebounceIntervalElapsed="Reload" />
 *@
 
-<div class="flex-initial">
-    <MudAutocomplete T="WikiPage" Label="Pages" Value="selectedPage" ValueChanged="HandleSelectedPageChanged" SearchFuncWithCancel="@Search" Variant="Variant.Outlined" ShowProgressIndicator="true" ToStringFunc="@(p => p?.Title ?? "")">
-        <ItemTemplate>
-            <MudText>@context.Title</MudText>
-        </ItemTemplate>
-        <ItemSelectedTemplate>
-            <MudText>@context.Title</MudText>
-        </ItemSelectedTemplate>
-    </MudAutocomplete>
+<MudCheckBox @bind-Checked="prefixWithTemplateTaxonomy" Label="Prefix with Template:Taxonomy/" @bind-Checked:after="loadingVm.Load" />
+
+<MudTextField Class="flex-grow-0 mb-4" @bind-Value="searchTitle" DebounceInterval="500" OnDebounceIntervalElapsed="loadingVm.Load" Variant="Variant.Outlined" AdornmentIcon="@Icons.Material.Filled.Search" Adornment="Adornment.End" />
+
+<div class="table-wrapper">
+
+    <MudTable T="WikiPage"
+                Items="loadingVm.Value"
+                Loading="loadingVm.IsLoading"
+                SelectedItem="SelectedPage"
+                OnRowClick="HandleRowClick"
+                RowClassFunc="@SelectedRowClassFunc"
+                Hover="true"
+                FixedHeader="true"
+                FixedFooter="true">
+        <HeaderContent>
+            <MudTh Style="width: 100px">Lang</MudTh>
+            <MudTh Style="">Title</MudTh>
+        <MudTh Style="width: 100px">Type</MudTh>
+        <MudTh Style="width: 100px">Step</MudTh>
+            <MudTh Style="width: 100px">Error</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Lang">@context.Lang</MudTd>
+            <MudTd DataLabel="Name">@context.Title</MudTd>
+            <MudTd DataLabel="Name">@context.Type</MudTd>
+        <MudTd DataLabel="Step">@context.Step.AsNormalStep()</MudTd>
+            <MudTd DataLabel="Step">@context.StepError</MudTd>
+        </RowTemplate>
+    </MudTable>
+
 </div>
 
-<div class="flex-1 d-flex overflow-hidden">
-    <Showbox Title="Content" Text="@LoadedPageContent" />
-    <Showbox Title="Taxobox Raw" Text="@recognizedTaxobox" />
-    <Showbox Title="Taxobox Xml" Text="@taxoboxXmlRepresentation" />
-</div>
+<MudDrawer @bind-Open="@IsDrawerOpen" Width="75%" Anchor="Anchor.Right" Elevation="3" Variant="@DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always">
+    <MudStack>
+        @if (SelectedPage is WikiPage page)
+        {
+            <div class="mb-4 pa-4 d-flex flex-column">
+                <MudText Typo="Typo.h4">@(page.Title)</MudText>                    
+                <MudLink Typo="Typo.body1" Target="_blank" Href="@(page.GetPageUrl())">
+                    <MudIcon Class="align-middle" Size="Size.Small" Icon="@ExtraIcons.FaExternalLinkAlt" />
+                    Wikipedia
+                </MudLink>
+            </div>
+        }
+
+        @if (latestPageDetailsLoadingTask is not null)
+        {
+            <BzLoader LoadingTask="latestPageDetailsLoadingTask">
+                @{
+                    var context = latestPageDetailsLoadingTask.Result;
+                }
+                <div class="flex-1 d-flex overflow-hidden">
+                    <Showbox Title="Content" Text="@context.Page.Content.Text" />
+                    <Showbox Title="Taxobox Raw" Text="@context.RecognizedTaxobox" />
+                    <Showbox Title="Taxobox Xml" Text="@context.TaxoboxXmlRepresentation" />
+                </div>
+            </BzLoader>
+        }
+    </MudStack>
+
+</MudDrawer>
 
 @code {
-    WikiPage selectedPage;
+    String searchTitle;
 
-    WikiPage loadedPage;
+    Boolean prefixWithTemplateTaxonomy;
 
-    String recognizedTaxobox;
+    LoadingVm<WikiPage[]> loadingVm;
 
-    String taxoboxXmlRepresentation;
+    WikiPage SelectedPage;
 
-    String LoadedPageContent => loadedPage?.Content.Text ?? "";
-
-    private async Task<IEnumerable<WikiPage>> Search(String value, CancellationToken token)
+    Boolean IsDrawerOpen
     {
-        var db = await DbFactory.CreateDbContextAsync();
-
-        return await db.Pages
-            .Where(p => p.Lang == "en" && p.Title.StartsWith(value))
-            //.Select(p => p.Title)
-            .Take(100)
-            .ToArrayAsync(token);
+        get => SelectedPage is not null;
+        set
+        {
+            if (!value) SelectedPage = null;
+        }
     }
 
-    async Task HandleSelectedPageChanged(WikiPage page)
+    public class PageDetails
     {
-        selectedPage = page;
+        public WikiPage Page { get; set; }
 
-        await Load(page.Title);
+        public String RecognizedTaxobox { get; set; }
+
+        public String TaxoboxXmlRepresentation { get; set; }
     }
 
-    async Task Load(String pageTitle)
+    Task<PageDetails> latestPageDetailsLoadingTask;
+
+    public Index()
+    {
+        loadingVm = new LoadingVm<WikiPage[]>(Load, StateHasChanged, new WikiPage[0]);
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        loadingVm.Load();
+    }
+
+    async Task<WikiPage[]> Load(CancellationToken ct)
+    {
+        var db = await DbFactory.CreateDbContextAsync(ct);
+
+        var query = db.Pages.AsQueryable();
+
+        query = query.Where(p => p.Lang == "en" && p.Type >= PageType.Content && p.Type <= PageType.TaxoTemplate);
+
+        if (!String.IsNullOrWhiteSpace(searchTitle))
+        {
+            var st = searchTitle;
+
+            if (prefixWithTemplateTaxonomy)
+            {
+                st = "Template:Taxonomy/" + st;
+            }
+
+            query = query.Where(p => p.Title.StartsWith(st));
+        }
+
+        return await query.Take(100).ToArrayAsync(ct);
+    }
+
+    async Task<PageDetails> Load(String pageTitle)
     {
         var db = await DbFactory.CreateDbContextAsync();
 
@@ -62,18 +158,18 @@
             .SingleAsync()
             ;
 
-        loadedPage = page;
-
-        DoParsingWork();
-    }
-
-    void DoParsingWork()
-    {
         var taxoboxParser = new HeuristicTaxoboxParser();
 
-        recognizedTaxobox = Try(() => taxoboxParser.GetTaxoboxWithHeuristicParsing(LoadedPageContent));
+        var recognizedTaxobox = Try(() => taxoboxParser.GetTaxoboxWithHeuristicParsing(page.Content.Text));
 
-        taxoboxXmlRepresentation = Try(() => XmlParsingReceiver.ParseToString(recognizedTaxobox));
+        var taxoboxXmlRepresentation = Try(() => recognizedTaxobox?.Apply(t => XmlParsingReceiver.ParseToString(t)));
+
+        return new PageDetails
+        {
+            Page = page,
+            RecognizedTaxobox = recognizedTaxobox,
+            TaxoboxXmlRepresentation = taxoboxXmlRepresentation
+        };
     }
 
     String Try(Func<String> action)
@@ -86,5 +182,26 @@
         {
             return $"Exception: \n\n{ex.ToString()}";
         }
+    }
+
+    void HandleRowClick(TableRowClickEventArgs<WikiPage> tableRowClickEventArgs)
+    {
+        if (tableRowClickEventArgs.Item == SelectedPage)
+        {
+            SelectedPage = null;
+
+            latestPageDetailsLoadingTask = null;
+        }
+        else
+        {
+            SelectedPage = tableRowClickEventArgs.Item;
+
+            latestPageDetailsLoadingTask = Load(SelectedPage.Title);
+        }
+    }
+
+    private string SelectedRowClassFunc(WikiPage element, int rowNumber)
+    {
+        return element == SelectedPage ? "selected" : "";
     }
 }

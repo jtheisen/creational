@@ -1,0 +1,43 @@
+﻿
+<BzCentered IsFlexItem="@IsFlexItem" ExtraBottomOffset="@ExtraBottomOffset">
+    <MudIcon Icon="@Icon" Color="Color.Primary" Class="full-width" Style="@IconStyle" />
+    <MudText Typo="Typo.h4">@Title</MudText>
+    <MudText Typo="Typo.body1" Class="mt-2">@Description</MudText>
+    @if (ActionContent is not null)
+    {
+        <div class="mt-12">
+            @ActionContent
+        </div>        
+    }
+</BzCentered>
+
+@code {
+    [Parameter]
+    public String Icon { get; set; }
+
+    [Parameter]
+    public String IconHeight { get; set; } = "5em";
+
+    [Parameter]
+    public String Title { get; set; }
+
+    [Parameter]
+    public String Description { get; set; }
+
+    [Parameter]
+    public RenderFragment ActionContent { get; set; }
+
+    [Parameter]
+    public Boolean IsFlexItem { get; set; } = true;
+
+    [Parameter]
+    public String ExtraIconOffset { get; set; } = "0";
+
+    [Parameter]
+    public String ExtraBottomOffset { get; set; } = "100px";
+
+    String IconStyle => ClassNames(
+        $"opacity: .2; margin-bottom: {ExtraIconOffset};",
+        IconHeight?.Apply(h => $"height: {h};")
+    );
+}

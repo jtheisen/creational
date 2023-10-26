@@ -39,6 +39,32 @@ body,
     height: 100%;
 }
 
+/* Make top-level mud tables take up the rest of the space and scroll */
+
+.table-wrapper {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+    .table-wrapper > .mud-table {
+        overflow: hidden;
+        flex: 0 1 auto;
+    }
+
+    .table-wrapper .mud-table,
+    .table-wrapper .mud-table .mud-table-container {
+        height: 100%;
+    }
+
 .showbox > pre {
     white-space: pre-wrap;
 }
+
+/* Tailwind */
+
+.align-middle {
+    vertical-align: middle;
+}
+
