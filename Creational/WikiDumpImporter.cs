@@ -112,22 +112,8 @@ public class WikiDumpImporter
 
         log.Info($"Starting import of {fileName}");
 
-        // !!! temporary selection
-        String[] missingNames = new[] { "core eudicots", "parahoxozoa", "core genistoids" };
-
         Boolean ShouldUpdatePage(WikiPage page)
         {
-            // !!! temporary selection
-            if (page.Type == PageType.TaxoTemplate)
-            {
-                var suffix = page.Title.Substring(TaxoTemplatePrefix.Length);
-                if (missingNames.FirstOrDefault(n => n.Equals(suffix, StringComparison.InvariantCultureIgnoreCase)) == null)
-                {
-                    return false;
-                }
-                log.Info("Got one: {name}", suffix);
-            }
-
             if (page.Type == PageType.Ignored) return false;
 
             if (updateOnly.HasValue && updateOnly != page.Type) return false;
