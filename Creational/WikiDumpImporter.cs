@@ -21,6 +21,38 @@ public class WikiDumpImporter
         redirectParser = new RedirectParser();
     }
 
+    public void FixupMissingVerySpecialToBeRemoved()
+    {
+        var db = dbFactory.CreateDbContext();
+
+        var coreEudicotsText = @"{{Don't edit this line {{{machine code|}}}
+|rank=clade
+|always_display=no
+|link=Core eudicots
+|parent=Eudicots
+|refs={{Cite journal|author=Angiosperm Phylogeny Group|year=2016|title=An update of the Angiosperm Phylogeny Group classification for the orders and families of flowering plants: APG IV|journal=Botanical Journal of the Linnean Society|volume=181|issue=1|pages=1–20|url=http://onlinelibrary.wiley.com/doi/10.1111/boj.12385/epdf|format=PDF|issn=00244074|doi=10.1111/boj.12385}}
+}}".ReplaceLineEndings("\n");
+
+        db.Pages.Add(new WikiPage
+        {
+            Lang = "en",
+            Title = "Template:Taxonomy/Core eudicots",
+            Id = Int32.MaxValue - 1000 + 1,
+            Step = Step.ToParseTaxobox,
+            Type = PageType.TaxoTemplate,
+            Content = new WikiPageContent
+            {
+                Text = coreEudicotsText
+            },
+            Taxobox = new WikiTaxobox
+            {
+                Taxobox = coreEudicotsText
+            }
+        });
+
+        db.SaveChanges();
+    }
+
     public void ImportTest(String fileName)
     {
         using var zippedStream = new FileStream(fileName, FileMode.Open, FileAccess.Read);
@@ -146,7 +178,7 @@ public class WikiDumpImporter
 
             var page = GetPage(element);
 
-            titlesWriter?.WriteLine(page.Title);
+            titlesWriter?.Write($"{page.Id:d10};{page.Title}");
 
             if (dryRun) continue;
 

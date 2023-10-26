@@ -60,8 +60,9 @@ var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 //importer.Import(fileName, lang, skip: 0, dryRun: true, updateOnly: PageType.TaxoTemplate);
 
 //extractionWorker.ProcessAll(lang);
+importer.FixupMissingVerySpecialToBeRemoved();
 
-parsingWorker.ProcessAll(lang, parseOnly: PageType.TaxoTemplate);
+//parsingWorker.ProcessAll(lang, parseOnly: PageType.TaxoTemplate);
 //analyzer.AnalyzeTaxoTemplates(lang);
 //analyzer.Analyze(lang);
 

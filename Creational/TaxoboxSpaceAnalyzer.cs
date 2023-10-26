@@ -92,7 +92,7 @@ public class TaxoboxSpaceAnalyzer
         {
             if (templateTitle.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase))
             {
-                return templateTitle.Substring(Prefix.Length).ToLowerInvariant();
+                return templateTitle.Substring(Prefix.Length)/*.ToLowerInvariant()*/;
             }
             else
             {
@@ -191,7 +191,7 @@ public class TaxoboxSpaceAnalyzer
 
             node.IsInitialized = true;
 
-            var parentTitle = node.Values.Parent?.ToLowerInvariant();
+            var parentTitle = node.Values.Parent/*?.ToLowerInvariant()*/;
 
             if (parentTitle is null)
             {
