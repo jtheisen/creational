@@ -54,16 +54,25 @@ var siteArchiveWriter = serviceProvider.GetRequiredService<SiteArchiveWriter>();
 
 var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 
+
+
 //using var titlesFileStream = new FileStream(titlesFileName, FileMode.Create, FileAccess.Write);
 //using var titlesWriter = new StreamWriter(titlesFileStream);
 
 //importer.Import(fileName, lang, skip: 0, dryRun: true, updateOnly: PageType.TaxoTemplate);
 
 //extractionWorker.ProcessAll(lang);
-importer.FixupMissingVerySpecialToBeRemoved();
+//importer.FixupMissingVerySpecialToBeRemoved();
+
+//importer.TransferTaxoTemplateContents(lang);
 
 //parsingWorker.ProcessAll(lang, parseOnly: PageType.TaxoTemplate);
+parsingWorker.ProcessAll(lang);
+
+
 //analyzer.AnalyzeTaxoTemplates(lang);
+
+
 //analyzer.Analyze(lang);
 
 //taxoboxImageCurator.Curate();

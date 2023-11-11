@@ -185,7 +185,7 @@ public class TaxoboxParsingWorker
             switch (page.Type)
             {
                 case PageType.TaxoTemplate:
-                    ProcessTaxotemplate(result, taxobox);
+                    ProcessTaxoTemplate(result, taxobox);
                     break;
                 case PageType.Content:
                     ProcessTaxobox(result, taxobox);
@@ -222,7 +222,42 @@ public class TaxoboxParsingWorker
         }
     }
 
-    void ProcessTaxotemplate(ParsingResult result, String taxotemplate)
+    void ProcessTaxoTemplate(ParsingResult result, String text)
+    {
+        if (text.StartsWith(TaxoTemplateRedirectPrefix))
+        {
+            ProcessTaxoTemplateRedirect(result, text);
+        }
+        else
+        {
+            ProcessProperTaxoTemplate(result, text);
+        }
+    }
+
+    void ProcessTaxoTemplateRedirect(ParsingResult result, String text)
+    {
+        if (!text.StartsWith(TaxoTemplateRedirectLead))
+        {
+            throw new Exception($"Redirect starts with unexpected lead");
+        }
+
+        var ci = text.IndexOf(']', TaxoTemplateRedirectLead.Length);
+
+        if (ci < 0)
+        {
+            throw new Exception($"Expected redirection to terminate on an ']'");
+        }
+
+        var name = text[TaxoTemplateRedirectLead.Length..ci];
+
+        result.Redirection = $"Template:Taxonomy/{name}";
+        result.TaxoTemplateValues = new TaxoTemplateValues
+        {
+            SameAs = name
+        };
+    }
+
+    void ProcessProperTaxoTemplate(ParsingResult result, String taxotemplate)
     {
         taxoboxParser.ParseIntoParsingResult(result, PrepareTaxoTemplate(taxotemplate));
 
@@ -256,17 +291,10 @@ public class TaxoboxParsingWorker
     void ProcessTaxobox(ParsingResult result, String taxobox)
     {
         result.FillByWikiParser(taxobox); // new version
-
-        if (result.Exception is null)
-        {
-            // Used to be in ParseIntoParsingResult (formerly GetEntries) and needs adjusting too
-            result.TaxonomyEntries = taxoboxParser.GetTaxonomyEntries(result.TaxoboxEntries, out var haveTruncationIssue);
-
-            result.HasTruncationIssue = haveTruncationIssue;
-        }
     }
 
     static readonly String TaxoTemplateRedirectPrefix = "#REDIRECT";
+    static readonly String TaxoTemplateRedirectLead = "#REDIRECT [[Template:Taxonomy/";
     static readonly String TaxoTemplatePrefix = "{{Don't edit this line {{{machine code|}}}\n";
     static readonly String TaxoTemplateReplacementPrefix = "{{Taxotemplate\n";
 

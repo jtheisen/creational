@@ -1,8 +1,15 @@
-﻿@if (error is not null)
+﻿@if (IsEmpty)
+{
+    @EmptyContent
+}
+else if (LoadingTask is null)
+{
+}
+else if (LoadingTask.IsFaulted && LoadingTask.Exception is Exception error)
 {
     <BzNonIdealState Icon="@Icons.Material.Filled.Error" Description="Daten konnten nicht geladen werden" Title="Fehler" />
 }
-else if (loaded)
+else if (LoadingTask.IsCompletedSuccessfully)
 {
     @if (IsEmpty && EmptyContent is not null)
     {
@@ -13,11 +20,15 @@ else if (loaded)
         @ChildContent
     }
 }
-else
+else if (!LoadingTask.IsCompleted)
 {
     <BzCentered>
         <MudProgressCircular Size="Size.Large" Indeterminate="true" />
     </BzCentered>
+}
+else
+{
+    <div>?</div>
 }
 
 @code {
@@ -34,37 +45,4 @@ else
 
     [Parameter]
     public RenderFragment EmptyContent { get; set; }
-
-    Boolean loadPending = true;
-    Boolean loaded = false;
-    Exception error;
-
-    protected override void OnParametersSet()
-    {
-        if (!loadPending) return;
-
-        loadPending = false;
-
-        InternalLoad();
-    }
-
-    async void InternalLoad()
-    {
-        log.Info("InternalLoad");
-
-        try
-        {
-            await LoadingTask;
-        }
-        catch (Exception ex)
-        {
-            error = ex;
-        }
-
-        log.Info("InternalLoad done");
-
-        loaded = true;
-
-        StateHasChanged();
-    }
 }

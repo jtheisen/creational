@@ -21,14 +21,31 @@ from Pages
 where Title like 'Template:Taxonomy/%' and upper(substring(Title, 19, 1)) <> substring(Title, 19, 1) collate Latin1_General_CS_AI
 
 
-select p.Type, p.Step, p.StepError, c.Text
+select p.Title, c.Title, p.Type, p.Step, p.StepError, t.Taxobox, v.SameAs, c.Text, t.Taxobox
+--select t.Taxobox
+from Pages p
+left join PageContents c on p.lang = c.lang and p.Title = c.Title
+left join Taxoboxes t on p.lang = t.lang and p.Title = t.Title
+left join TaxoTemplateValues v on p.lang = v.lang and p.Title = v.Title
+where p.Title like 'Template:Taxonomy/Bacteroidota-Chlorobiota group'
+
+update c
+set [Text] = '{{Don''t edit this line {{{machine code|}}}
+|rank=clade
+|always_display=no
+|link=Core eudicots
+|parent=Eudicots
+|refs={{Cite journal|author=Angiosperm Phylogeny Group|year=2016|title=An update of the Angiosperm Phylogeny Group classification for the orders and families of flowering plants: APG IV|journal=Botanical Journal of the Linnean Society|volume=181|issue=1|pages=1–20|url=http://onlinelibrary.wiley.com/doi/10.1111/boj.12385/epdf|format=PDF|issn=00244074|doi=10.1111/boj.12385}}
+}}
+'
 from Pages p
 join PageContents c on p.lang = c.lang and p.Title = c.Title
-where p.Title = 'Template:Taxonomy/life'
+where p.Title = 'Template:Taxonomy/Core eudicots'
 
-select [Type], Title
+
+select [Step], [StepError], [Type], Title
 from Pages
-where Title like 'Template:Taxonomy/%' and [Type] <> 3
+where Title like 'Template:Taxonomy/parahoxozoa' and [Type] = 3
 
 
 select *
@@ -47,9 +64,11 @@ group by [Type], [Step], [StepError]
 order by [Type], [Step], [StepError]
 
 -- edit to reparse some set of pages
-update Pages
+update p
 set Step = 2, StepError = null
-where Type in (2, 3) and Title = 'Template:Taxonomy/life'
+from Pages p
+join Taxoboxes t on p.lang = t.lang and p.Title = t.Title
+where p.[Type] in (2, 3) and p.Step = -2
 ;
 
 -- remove parsing results for to-be-parsed pages

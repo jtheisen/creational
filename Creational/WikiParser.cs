@@ -497,15 +497,48 @@ public class WikiParser
 
             p = LookBeyondWhitespace("parsing attribute, skipping to '\"'");
 
-            var attributeValue = ParseAttributeValue();
+            var attributeValue = input[p] == '"' ? ParseQuotedAttributeValue() : ParseUnqotedAttributeValue();
 
             receiver.AddXmlAttribute(attributeName, attributeValue);
         }
     }
 
-    String ParseAttributeValue()
+    static String UnquotedAttributeExtraChars = "-_";
+
+    Boolean IsUnquotedAttributeChar(Char c)
     {
-        if (input[p] != '"') throw new Exception("Expected an attribute value to start with '\"'");
+        if (Char.IsLetterOrDigit(c)) return true;
+
+        if (UnquotedAttributeExtraChars.Contains(c)) return true;
+
+        return false;
+    }
+
+    String ParseUnqotedAttributeValue()
+    {
+        var i = p;
+
+        while (i < input.Length)
+        {
+            var c = input[i];
+
+            if (!IsUnquotedAttributeChar(c)) break;
+
+            ++i;
+        }
+
+        var attributeValue = input.Substring(p, i - p);
+
+        p = i;
+
+        AssertMoreInput();
+
+        return attributeValue;
+    }
+
+    String ParseQuotedAttributeValue()
+    {
+        if (input[p] != '"') Throw("Expected an attribute value to start with '\"'");
 
         AssertMoreInput();
 
@@ -715,33 +748,76 @@ public static class WikiParserExtensions
 
         if (!ValidTaxoboxNames.Contains(taxoboxName)) throw new Exception($"Unexpected taxobox name: {taxoboxName}");
 
-        var taxoboxEntries = new List<TaxoboxEntry>();
+        XElement GetEntryElement(String key) => taxoboxElement.Elements()
+            .SingleOrDefault(e => e.Attribute("key")?.Value.Equals(key, StringComparison.InvariantCultureIgnoreCase) == true);
 
-        var knownKeys = new HashSet<String>();
+        String GetStringEntry(String key, Int32 maxLength) => GetEntryElement(key)?.Value.TruncateUtf8(maxLength);
 
-        foreach (var line in taxoboxElement.Elements())
+        result.TemplateName = taxoboxName;
+        result.Genus = GetStringEntry("genus", 60);
+        result.Species = GetStringEntry("species", 60);
+        result.Taxon = GetStringEntry("taxon", 60);
+
+        var imageElement = GetEntryElement("image");
+
+        var images = GetImagesFromElement(imageElement, out var imageSituation);
+
+        result.ImageSituation = imageSituation;
+
+        if (images is not null)
         {
-            var key = line.Attribute("key")?.Value;
-
-            if (key is null) throw new Exception($"Taxobox has keyless argument");
-
-            if (!knownKeys.Add(key))
+            result.TaxoboxImageEntries = images.Select(i => new TaxoboxImageEntry
             {
-                result.HasDuplicateTaxoboxEntries = true;
+                Lang = result.Lang,
+                Title = result.Title,
+                Filename = i.Truncate(200)
+            }).ToList();
+        }
+    }
 
-                continue;
+    static IEnumerable<String> GetImagesFromElement(XElement imageElement, out PageImageSituation imageSituation)
+    {
+        if (imageElement is not null)
+        {
+            var imageList = imageElement.Element("Multiple_image");
+
+            if (imageList is not null)
+            {
+                imageSituation = PageImageSituation.Multiple;
+
+                return GetImagesFromImageList(imageList);
             }
 
-            if (key.Length > 60) throw new Exception("Taxobox line key too long");
+            var text = imageElement.Value;
 
-            var value = line.Value;
+            if (text.Contains('|'))
+            {
+                imageSituation = PageImageSituation.Unsupported;
 
-            taxoboxEntries.Add(new TaxoboxEntry { Lang = result.Lang, Title = result.Title, Key = key, Value = value.Truncate(80) });
+                return null;
+            }
+
+            imageSituation = PageImageSituation.Simple;
+
+            return new[] { text };
+        }
+        else
+        {
+            imageSituation = PageImageSituation.NoEntry;
         }
 
-        result.WithTaxobox = taxoboxEntries.Count > 0;
-        result.TemplateName = taxoboxName;
-        result.TaxoboxEntries = taxoboxEntries;
+        return null;
+    }
+
+    static IEnumerable<String> GetImagesFromImageList(XElement imageList)
+    {
+        foreach (var imageElement in imageList.Elements())
+        {
+            if (imageElement.Name.LocalName.StartsWith("image", StringComparison.InvariantCultureIgnoreCase))
+            {
+                yield return imageElement.Value;
+            }
+        }
     }
 
     public static void FillLinkValues(this TaxoTemplateValues values, String link)

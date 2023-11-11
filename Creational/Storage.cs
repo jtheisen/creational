@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Creational.Migrations;
+using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Xml.Serialization;
@@ -175,6 +176,15 @@ public class WikiTaxobox
     public String Taxobox { get; set; }
 }
 
+public enum PageImageSituation
+{
+    Unknown = 0,
+    NoEntry = 1,
+    Unsupported = 2,
+    Simple = 3,
+    Multiple = 4
+}
+
 public class ParsingResult
 {
     [StringLength(2)]
@@ -185,6 +195,17 @@ public class ParsingResult
 
     [StringLength(60)]
     public String TemplateName { get; set; }
+
+    public PageImageSituation ImageSituation { get; set; }
+
+    [StringLength(60)]
+    public String Taxon { get; set; }
+
+    [StringLength(60)]
+    public String Genus { get; set; }
+
+    [StringLength(60)]
+    public String Species { get; set; }
 
     [CascadeDelete]
     public WikiPage Page { get; set; }
@@ -206,9 +227,25 @@ public class ParsingResult
 
     public TaxoTemplateValues TaxoTemplateValues { get; set; }
 
+    public ICollection<TaxoboxImageEntry> TaxoboxImageEntries { get; set; }
+
     public ICollection<TaxoboxEntry> TaxoboxEntries { get; set; }
 
     public ICollection<TaxonomyEntry> TaxonomyEntries { get; set; }
+}
+
+public class TaxoboxImageEntry
+{
+    [StringLength(2)]
+    public String Lang { get; set; }
+
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    [StringLength(2000)]
+    public String Filename { get; set; }
+
+    public ParsingResult ParsedPage { get; set; }
 }
 
 public class TaxoboxEntry
@@ -347,6 +384,7 @@ public class ApplicationDb : DbContext
 
     public DbSet<ParsingResult> ParsingResults { get; set; }
     public DbSet<TaxoTemplateValues> TaxoTemplateValues { get; set; }
+    public DbSet<TaxoboxImageEntry> TaxoboxImageEntries { get; set; }
     public DbSet<TaxoboxEntry> TaxoboxEntries { get; set; }
     public DbSet<TaxonomyRelation> TaxonomyRelations { get; set; }
 
@@ -456,6 +494,19 @@ public class ApplicationDb : DbContext
             .HasForeignKey<TaxoTemplateValues>(e => new { e.Lang, e.Title })
             ;
 
+        modelBuilder.Entity<TaxoboxImageEntry>()
+            .HasKey(e => new { e.Lang, e.Title })
+            ;
+        modelBuilder.Entity<TaxoboxImageEntry>()
+            .Property(e => e.Filename)
+            .UseCollation("Latin1_General_BIN2")
+            ;
+        modelBuilder.Entity<TaxoboxImageEntry>()
+            .HasOne(e => e.ParsedPage)
+            .WithMany(e => e.TaxoboxImageEntries)
+            .HasForeignKey(e => new { e.Lang, e.Title })
+            ;
+
         modelBuilder.Entity<TaxoboxEntry>()
             .HasKey(e => new { e.Lang, e.Title, e.Key })
             ;
@@ -463,7 +514,6 @@ public class ApplicationDb : DbContext
             .HasOne(e => e.ParsedPage)
             .WithMany(e => e.TaxoboxEntries)
             ;
-
         modelBuilder.Entity<TaxonomyEntry>()
             .HasKey(e => new { e.Lang, e.Title, e.No })
             ;

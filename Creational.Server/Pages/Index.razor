@@ -55,7 +55,7 @@
 </div>
 
 <MudDrawer @bind-Open="@IsDrawerOpen" Width="75%" Anchor="Anchor.Right" Elevation="3" Variant="@DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always">
-    <MudStack>
+    <MudStack Class="overflow-hidden">
         @if (SelectedPage is WikiPage page)
         {
             <div class="mb-4 pa-4 d-flex flex-column">
@@ -145,7 +145,10 @@
             query = query.Where(p => p.Title.StartsWith(st));
         }
 
-        return await query.Take(100).ToArrayAsync(ct);
+        return await query
+            .OrderBy(p => p.Title)
+            .Take(100)
+            .ToArrayAsync(ct);
     }
 
     async Task<PageDetails> Load(String pageTitle)
@@ -184,7 +187,7 @@
         }
     }
 
-    void HandleRowClick(TableRowClickEventArgs<WikiPage> tableRowClickEventArgs)
+    async void HandleRowClick(TableRowClickEventArgs<WikiPage> tableRowClickEventArgs)
     {
         if (tableRowClickEventArgs.Item == SelectedPage)
         {
@@ -197,6 +200,15 @@
             SelectedPage = tableRowClickEventArgs.Item;
 
             latestPageDetailsLoadingTask = Load(SelectedPage.Title);
+
+            try
+            {
+                await latestPageDetailsLoadingTask;
+            }
+            finally
+            {
+                StateHasChanged();
+            }
         }
     }
 

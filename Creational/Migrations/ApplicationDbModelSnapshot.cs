@@ -66,7 +66,7 @@ namespace Creational.Migrations
 
                     b.HasKey("Lang", "Title");
 
-                    b.ToTable("ParsingResults");
+                    b.ToTable("ParsingResults", (string)null);
                 });
 
             modelBuilder.Entity("Creational.TaxoboxEntry", b =>
@@ -93,7 +93,7 @@ namespace Creational.Migrations
 
                     b.HasKey("Lang", "Title", "Key");
 
-                    b.ToTable("TaxoboxEntries");
+                    b.ToTable("TaxoboxEntries", (string)null);
                 });
 
             modelBuilder.Entity("Creational.TaxonomyEntry", b =>
@@ -140,7 +140,7 @@ namespace Creational.Migrations
 
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Lang", "NameLocal", "Rank", "Title"), new[] { "Name" });
 
-                    b.ToTable("TaxonomyEntry");
+                    b.ToTable("TaxonomyEntry", (string)null);
                 });
 
             modelBuilder.Entity("Creational.TaxonomyRelation", b =>
@@ -169,7 +169,7 @@ namespace Creational.Migrations
 
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Lang", "Descendant", "Ancestor"), new[] { "No" });
 
-                    b.ToTable("TaxonomyRelations");
+                    b.ToTable("TaxonomyRelations", (string)null);
                 });
 
             modelBuilder.Entity("Creational.TaxoTemplateValues", b =>
@@ -211,7 +211,7 @@ namespace Creational.Migrations
 
                     b.HasKey("Lang", "Title");
 
-                    b.ToTable("TaxoTemplateValues");
+                    b.ToTable("TaxoTemplateValues", (string)null);
                 });
 
             modelBuilder.Entity("Creational.WikiImageData", b =>
@@ -251,7 +251,7 @@ namespace Creational.Migrations
 
                     b.HasKey("Filename", "Kind");
 
-                    b.ToTable("ImageData");
+                    b.ToTable("ImageData", (string)null);
                 });
 
             modelBuilder.Entity("Creational.WikiImageLink", b =>
@@ -282,7 +282,7 @@ namespace Creational.Migrations
 
                     b.HasKey("Lang", "Title", "Position");
 
-                    b.ToTable("ImageLinks");
+                    b.ToTable("ImageLinks", (string)null);
                 });
 
             modelBuilder.Entity("Creational.WikiPage", b =>
@@ -328,7 +328,7 @@ namespace Creational.Migrations
 
                     b.HasIndex("Lang", "Step", "Type");
 
-                    b.ToTable("Pages");
+                    b.ToTable("Pages", (string)null);
                 });
 
             modelBuilder.Entity("Creational.WikiPageContent", b =>
@@ -368,7 +368,7 @@ namespace Creational.Migrations
 
                     b.HasKey("Lang", "Title");
 
-                    b.ToTable("PageContents");
+                    b.ToTable("PageContents", (string)null);
                 });
 
             modelBuilder.Entity("Creational.WikiResolvedImage", b =>
@@ -389,7 +389,7 @@ namespace Creational.Migrations
 
                     b.HasKey("Filename");
 
-                    b.ToTable("ResolvedImages");
+                    b.ToTable("ResolvedImages", (string)null);
                 });
 
             modelBuilder.Entity("Creational.WikiTaxobox", b =>
@@ -416,7 +416,7 @@ namespace Creational.Migrations
 
                     b.HasKey("Lang", "Title");
 
-                    b.ToTable("Taxoboxes");
+                    b.ToTable("Taxoboxes", (string)null);
                 });
 
             modelBuilder.Entity("Creational.WikiTaxoboxImage", b =>
@@ -439,7 +439,7 @@ namespace Creational.Migrations
 
                     b.HasKey("Title");
 
-                    b.ToTable("TaxoboxImages");
+                    b.ToTable("TaxoboxImages", (string)null);
                 });
 
             modelBuilder.Entity("Creational.ParsingResult", b =>

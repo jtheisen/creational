@@ -21,6 +21,38 @@ public class WikiDumpImporter
         redirectParser = new RedirectParser();
     }
 
+    public void TransferTaxoTemplateContents(String lang)
+    {
+        var db = dbFactory.CreateDbContext();
+
+        db.Database.ExecuteSqlInterpolated(
+        $@"
+merge Taxoboxes t
+using (
+	select p.Lang, p.Title, c.Sha1, c.[Text]
+	from Pages p
+	join PageContents c on p.lang = c.lang and p.Title = c.Title
+	where p.[Type] = {(Int32)PageType.TaxoTemplate} and p.Lang = {lang}
+) s
+on (t.Lang = s.Lang and t.Title = s.Title)
+when matched then
+	update set Sha1 = s.Sha1, [Taxobox] = s.[Text]
+when not matched then
+	insert (Lang, Title, Sha1, [Taxobox])
+	values (s.Lang, s.Title, s.Sha1, s.[Text]);
+");
+
+        db.Database.ExecuteSqlInterpolated($@"
+    update p
+    set [Step] = {(Int32)Step.ToParseTaxobox}
+	from Pages p
+	join PageContents c on p.lang = c.lang and p.Title = c.Title
+	where p.[Type] = {(Int32)PageType.TaxoTemplate} and p.Lang = {lang}
+");
+
+        log.Info($"Updated taxobox rows for modified taxo template pages");
+    }
+
     public void FixupMissingVerySpecialToBeRemoved()
     {
         var db = dbFactory.CreateDbContext();
@@ -71,7 +103,14 @@ public class WikiDumpImporter
     static String TaxoTemplatePrefix = "Template:Taxonomy/";
 
     public void Import(
-        String fileName, String lang, Int32 skip = 0, Boolean dryRun = false, PageType? updateOnly = null, TextWriter titlesWriter = null)
+        String fileName,
+        String lang,
+        Int32 skip = 0,
+        Boolean dryRun = false,
+        PageType? updateOnly = null,
+        Boolean alwaysTransferTaxoTemplateContents = false,
+        TextWriter titlesWriter = null
+    )
     {
         var fileLength = new FileInfo(fileName).Length;
 
@@ -244,36 +283,9 @@ public class WikiDumpImporter
 
         log.Info($"Read {i} elements with {persisted} persisted");
 
-        if (hadTaxoTemplate)
+        if (hadTaxoTemplate || alwaysTransferTaxoTemplateContents)
         {
-            var db = dbFactory.CreateDbContext();
-
-            db.Database.ExecuteSqlInterpolated(
-            $@"
-merge Taxoboxes t
-using (
-	select p.Lang, p.Title, c.Sha1, c.[Text]
-	from Pages p
-	join PageContents c on p.lang = c.lang and p.Title = c.Title
-	where p.[Type] = {(Int32)PageType.TaxoTemplate} and p.Lang = {lang} and p.Step >= {(Int32)Step.ToExtractContent}
-) s
-on (t.Lang = s.Lang and t.Title = s.Title)
-when matched then
-	update set Sha1 = s.Sha1, [Taxobox] = s.[Text]
-when not matched then
-	insert (Lang, Title, Sha1, [Taxobox])
-	values (s.Lang, s.Title, s.Sha1, s.[Text]);
-");
-
-            db.Database.ExecuteSqlInterpolated($@"
-    update p
-    set [Step] = {(Int32)Step.ToParseTaxobox}
-	from Pages p
-	join PageContents c on p.lang = c.lang and p.Title = c.Title
-	where p.[Type] = {(Int32)PageType.TaxoTemplate} and p.Lang = {lang} and p.Step >= {(Int32)Step.ToExtractContent}
-");
-
-            log.Info($"Updated taxobox rows for modified taxo template pages");
+            TransferTaxoTemplateContents(lang);
         }
     }
 }

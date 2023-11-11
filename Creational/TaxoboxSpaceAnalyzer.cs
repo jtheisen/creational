@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Linq;
 using NLog;
 using System.Data;
+using System.Linq;
 
 namespace Creational;
 
@@ -142,15 +143,19 @@ public class TaxoboxSpaceAnalyzer
 
         var db = dbContextFactory.CreateDbContext();
 
-        var allKnownTaxoTemplateNames = db.Pages
+        var allKnownTaxoTemplatePages = db.Pages
             .Where(t => t.Lang == lang)
             .Where(t => t.Title.StartsWith("Template:Taxonomy/"))
-            .Select(t => t.Title)
             .ToArray()
-            .Select(t => TaxoTemplateTreeNode.ExtractProperNameOrNot(t))
-            .Where(t => t is not null)
-            .ToHashSet()
             ;
+
+        var allKnownTaxoTemplateNamesWithErrors = (
+            from p in allKnownTaxoTemplatePages
+            let name = TaxoTemplateTreeNode.ExtractProperNameOrNot(p.Title)
+            let error = p.Step < 0 ? p.StepError : null
+            where name is not null
+            select (name, error)
+        ).ToDictionary(e => e.name, e => e.error);
 
         var taxoTemplateValues = db.TaxoTemplateValues
             .Where(t => t.Lang == lang)
@@ -289,9 +294,9 @@ public class TaxoboxSpaceAnalyzer
 
                 if (root.MissingParentName is String mpn)
                 {
-                    if (allKnownTaxoTemplateNames.Contains(mpn))
+                    if (allKnownTaxoTemplateNamesWithErrors.TryGetValue(mpn, out var error))
                     {
-                        log.Info("   have an unparsed parent candidate");
+                        log.Info("   have an unparsed parent candidate ({error})", error);
                     }
                     else
                     {
