@@ -196,16 +196,21 @@ public class ParsingResult
     [StringLength(60)]
     public String TemplateName { get; set; }
 
+    public PageType Type { get; set; }
+
     public PageImageSituation ImageSituation { get; set; }
 
-    [StringLength(60)]
+    [StringLength(200)]
     public String Taxon { get; set; }
 
-    [StringLength(60)]
+    [StringLength(200)]
     public String Genus { get; set; }
 
-    [StringLength(60)]
+    [StringLength(200)]
     public String Species { get; set; }
+
+    [StringLength(200)]
+    public String Parent { get; set; }
 
     [CascadeDelete]
     public WikiPage Page { get; set; }
@@ -245,6 +250,7 @@ public class TaxoboxImageEntry
     [StringLength(2000)]
     public String Filename { get; set; }
 
+    [CascadeDelete]
     public ParsingResult ParsedPage { get; set; }
 }
 
@@ -397,6 +403,8 @@ public class ApplicationDb : DbContext
     {
     }
 
+    const String BinCollation = "Latin1_General_BIN2"; // should really be Latin1_General_100_BIN2_UTF8, but it's difficult to migrate
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.UseCollation("Latin1_General_100_CI_AS_SC_UTF8");
@@ -436,7 +444,7 @@ public class ApplicationDb : DbContext
             ;
         modelBuilder.Entity<WikiTaxoboxImage>()
             .Property(e => e.Filename)
-            .UseCollation("Latin1_General_BIN2")
+            .UseCollation(BinCollation)
             ;
 
         modelBuilder.Entity<WikiImageLink>()
@@ -444,7 +452,7 @@ public class ApplicationDb : DbContext
             ;
         modelBuilder.Entity<WikiImageLink>()
             .Property(e => e.Filename)
-            .UseCollation("Latin1_General_BIN2")
+            .UseCollation(BinCollation)
             ;
         modelBuilder.Entity<WikiImageLink>()
             .HasOne(e => e.Page)
@@ -456,7 +464,7 @@ public class ApplicationDb : DbContext
             ;
         modelBuilder.Entity<WikiResolvedImage>()
             .Property(e => e.Filename)
-            .UseCollation("Latin1_General_BIN2")
+            .UseCollation(BinCollation)
             ;
 
         modelBuilder.Entity<WikiImageData>()
@@ -464,7 +472,7 @@ public class ApplicationDb : DbContext
             ;
         modelBuilder.Entity<WikiImageData>()
             .Property(e => e.Filename)
-            .UseCollation("Latin1_General_BIN2")
+            .UseCollation(BinCollation)
             ;
 
         modelBuilder.Entity<WikiTaxobox>()
@@ -499,7 +507,7 @@ public class ApplicationDb : DbContext
             ;
         modelBuilder.Entity<TaxoboxImageEntry>()
             .Property(e => e.Filename)
-            .UseCollation("Latin1_General_BIN2")
+            .UseCollation(BinCollation)
             ;
         modelBuilder.Entity<TaxoboxImageEntry>()
             .HasOne(e => e.ParsedPage)

@@ -720,13 +720,11 @@ public static class WikiParserExtensions
 {
     public static void FillByWikiParser(this ParsingResult result, String text)
     {
-        XElement rootElement = null;
-
         try
         {
-            rootElement = XmlParsingReceiver.Parse(text);
+            var rootElement = XmlParsingReceiver.Parse(text);
 
-            FillInternal(result, rootElement);
+            FillFromParsedTemplate(result, rootElement);
         }
         catch (Exception e)
         {
@@ -736,7 +734,7 @@ public static class WikiParserExtensions
 
     static String[] ValidTaxoboxNames = new[] { "Taxotemplate", "Taxobox", "Automatic_taxobox", "Speciesbox" };
 
-    static void FillInternal(ParsingResult result, XElement rootElement)
+    public static void FillFromParsedTemplate(this ParsingResult result, XElement rootElement)
     {
         var rootChildren = rootElement.Elements();
 
@@ -748,15 +746,18 @@ public static class WikiParserExtensions
 
         if (!ValidTaxoboxNames.Contains(taxoboxName)) throw new Exception($"Unexpected taxobox name: {taxoboxName}");
 
+        taxoboxElement.RemoveElementsByName("ref");
+
         XElement GetEntryElement(String key) => taxoboxElement.Elements()
             .SingleOrDefault(e => e.Attribute("key")?.Value.Equals(key, StringComparison.InvariantCultureIgnoreCase) == true);
 
         String GetStringEntry(String key, Int32 maxLength) => GetEntryElement(key)?.Value.TruncateUtf8(maxLength);
 
         result.TemplateName = taxoboxName;
-        result.Genus = GetStringEntry("genus", 60);
-        result.Species = GetStringEntry("species", 60);
-        result.Taxon = GetStringEntry("taxon", 60);
+        result.Genus = GetStringEntry("genus", 200);
+        result.Species = GetStringEntry("species", 200);
+        result.Taxon = GetStringEntry("taxon", 200);
+        result.Parent = GetStringEntry("parent", 200);
 
         var imageElement = GetEntryElement("image");
 

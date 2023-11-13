@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Creational;
 
@@ -137,5 +138,20 @@ public static class Extensions
         }
 
         return utf8Truncator.Truncate(s, maxBytes);
+    }
+
+    public static void RemoveElementsByName(this XElement element, String name)
+    {
+        foreach (var child in element.Elements())
+        {
+            if (child.Name.LocalName.Equals(name, StringComparison.OrdinalIgnoreCase))
+            {
+                child.Remove();
+            }
+            else
+            {
+                child.RemoveElementsByName(name);
+            }
+        }
     }
 }

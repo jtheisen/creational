@@ -1,4 +1,6 @@
 ﻿@page "/"
+@using Newtonsoft.Json;
+@using System.Xml.Linq;
 @layout LtBroadLayout
 @inject IDbContextFactory<ApplicationDb> DbFactory
 
@@ -77,6 +79,7 @@
                     <Showbox Title="Content" Text="@context.Page.Content.Text" />
                     <Showbox Title="Taxobox Raw" Text="@context.RecognizedTaxobox" />
                     <Showbox Title="Taxobox Xml" Text="@context.TaxoboxXmlRepresentation" />
+                    <Showbox Title="Parsing Result" Text="@context.ParsingResultRepresentation" />
                 </div>
             </BzLoader>
         }
@@ -109,6 +112,8 @@
         public String RecognizedTaxobox { get; set; }
 
         public String TaxoboxXmlRepresentation { get; set; }
+
+        public String ParsingResultRepresentation { get; set; }
     }
 
     Task<PageDetails> latestPageDetailsLoadingTask;
@@ -167,12 +172,26 @@
 
         var taxoboxXmlRepresentation = Try(() => recognizedTaxobox?.Apply(t => XmlParsingReceiver.ParseToString(t)));
 
+        var parsingResultRepresentation = Try(() => taxoboxXmlRepresentation?.Apply(t => GetParsingResultRepresentation(t)));
+
         return new PageDetails
         {
             Page = page,
             RecognizedTaxobox = recognizedTaxobox,
-            TaxoboxXmlRepresentation = taxoboxXmlRepresentation
+            TaxoboxXmlRepresentation = taxoboxXmlRepresentation,
+            ParsingResultRepresentation = parsingResultRepresentation
         };
+    }
+
+    static String GetParsingResultRepresentation(String xml)
+    {
+        var element = XElement.Parse(xml);
+
+        var result = new ParsingResult();
+
+        result.FillFromParsedTemplate(element);
+
+        return JsonConvert.SerializeObject(result, Formatting.Indented);
     }
 
     String Try(Func<String> action)

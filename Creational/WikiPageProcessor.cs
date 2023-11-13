@@ -120,7 +120,8 @@ public class WikiPageProcessor
             var parsed = new ParsingResult
             {
                 Title = page.Title,
-                Sha1 = page.Content.Sha1
+                Sha1 = page.Content.Sha1,
+                Type = page.Type
             };
 
             try

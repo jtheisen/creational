@@ -4,6 +4,7 @@ using Creational;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Creational.Migrations
 {
     [DbContext(typeof(ApplicationDb))]
-    partial class ApplicationDbModelSnapshot : ModelSnapshot
+    [Migration("20231111165343_NewImageEntries")]
+    partial class NewImageEntries
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -41,9 +43,9 @@ namespace Creational.Migrations
                         .HasColumnType("varchar(1000)");
 
                     b.Property<string>("Genus")
-                        .HasMaxLength(200)
+                        .HasMaxLength(60)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("varchar(60)");
 
                     b.Property<bool>("HasDuplicateTaxoboxEntries")
                         .HasColumnType("bit");
@@ -53,11 +55,6 @@ namespace Creational.Migrations
 
                     b.Property<int>("ImageSituation")
                         .HasColumnType("int");
-
-                    b.Property<string>("Parent")
-                        .HasMaxLength(200)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(200)");
 
                     b.Property<string>("Redirection")
                         .HasMaxLength(200)
@@ -70,22 +67,19 @@ namespace Creational.Migrations
                         .HasColumnType("varchar(40)");
 
                     b.Property<string>("Species")
-                        .HasMaxLength(200)
+                        .HasMaxLength(60)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("varchar(60)");
 
                     b.Property<string>("Taxon")
-                        .HasMaxLength(200)
+                        .HasMaxLength(60)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("varchar(60)");
 
                     b.Property<string>("TemplateName")
                         .HasMaxLength(60)
                         .IsUnicode(false)
                         .HasColumnType("varchar(60)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
 
                     b.Property<bool>("WithTaxobox")
                         .HasColumnType("bit");
@@ -518,7 +512,7 @@ namespace Creational.Migrations
                     b.HasOne("Creational.ParsingResult", "ParsedPage")
                         .WithMany("TaxoboxImageEntries")
                         .HasForeignKey("Lang", "Title")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.ClientCascade)
                         .IsRequired();
 
                     b.Navigation("ParsedPage");

@@ -135,6 +135,9 @@ when not matched then
             var isParaHoxozoaException =
                 title.Equals("Template:Taxonomy/Parahoxozoa");
 
+            var isDraft =
+                title.StartsWith("Draft:", StringComparison.InvariantCultureIgnoreCase);
+
             var isTaxoTemplate =
                 title.Length > TaxoTemplatePrefix.Length &&
                 title.StartsWith(TaxoTemplatePrefix) &&
@@ -154,6 +157,7 @@ when not matched then
             }
 
             var type =
+                isDraft ? PageType.Ignored :
                 isParaHoxozoaException ? PageType.Ignored :
                 hasCaseIssue ? PageType.Ignored :
                 isRedirect ? PageType.Redirect :

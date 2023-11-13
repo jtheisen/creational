@@ -67,10 +67,12 @@ var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 //importer.TransferTaxoTemplateContents(lang);
 
 //parsingWorker.ProcessAll(lang, parseOnly: PageType.TaxoTemplate);
-parsingWorker.ProcessAll(lang);
+//parsingWorker.ProcessAll(lang);
 
 
 //analyzer.AnalyzeTaxoTemplates(lang);
+
+analyzer.AnalyzeSpecies(lang);
 
 
 //analyzer.Analyze(lang);

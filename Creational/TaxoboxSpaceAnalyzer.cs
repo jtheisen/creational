@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Linq;
 using NLog;
+using NLog.Targets;
 using System.Data;
 using System.Linq;
 
@@ -314,6 +315,117 @@ public class TaxoboxSpaceAnalyzer
                 }
             }
         }
+    }
+
+    (String genus, String species, String error) SplitTaxon(String taxon)
+    {
+        var parts = taxon
+            .Split(' ')
+            .Where(p => !String.IsNullOrWhiteSpace(p))
+            .ToArray();
+
+        if (parts.Length == 1)
+        {
+            return (parts[0], parts[0], null);
+        }
+        else if (parts.Length == 2)
+        {
+            return (parts[0], parts[1], null);
+        }
+        else
+        {
+            return (parts[0], String.Join(" ", parts[1..]), null);
+        }
+    }
+
+    public void AnalyzeSpecies(String lang)
+    {
+        var db = dbContextFactory.CreateDbContext();
+
+        log.Info("AnalyzeSpecies loading data");
+
+        var allKnownTaxoTemplatePages = db.Pages
+            .Include(p => p.Parsed)
+                .ThenInclude(r => r.TaxoTemplateValues)
+            .Where(t => t.Lang == lang)
+            .Where(t => t.Title.StartsWith("Template:Taxonomy/"))
+            .ToArray()
+            ;
+
+        var allKnownTaxoTemplatePagesByName = (
+            from p in allKnownTaxoTemplatePages
+            let name = TaxoTemplateTreeNode.ExtractProperNameOrNot(p.Title)
+            where name is not null
+            select (name, p)
+        ).ToDictionary(p => p.name, p => p.p);
+
+        var parsedSpecies = db.ParsingResults
+            .Where(r => r.Page.Step >= Step.Finished && r.Page.Lang == lang && r.Page.Type == PageType.Content && r.TemplateName == "speciesbox")
+            .ToArray()
+            ;
+
+        (WikiPage template, String error) FindTaxoTemplateByName(String name, String error)
+        {
+            if (allKnownTaxoTemplatePagesByName.TryGetValue(name, out var template))
+            {
+                if (template?.Parsed?.TaxoTemplateValues is TaxoTemplateValues values)
+                {
+                    return (template, null);
+                }
+                else
+                {
+                    return (null, "matched template wasn't parsed");
+                }
+            }
+            else
+            {
+                return (null, error);
+            }
+        }
+
+        (WikiPage template, String error) FindTaxoTemplate(ParsingResult parsed)
+        {
+            if (parsed.Taxon is String taxon && !String.IsNullOrWhiteSpace(taxon))
+            {
+                var (genus, species, error) = SplitTaxon(taxon);
+
+                if (genus is not null)
+                {
+                    return FindTaxoTemplateByName(genus, "taxon not found");
+                }
+                else
+                {
+                    return (null, error ?? "unknown error");
+                }
+            }
+            else if (parsed.Genus is String genus && !String.IsNullOrWhiteSpace(genus))
+            {
+                return FindTaxoTemplateByName(genus, "genus not found");
+            }
+            else
+            {
+                return (null, "neither parent nor genus set");
+            }
+        }
+
+        log.Info("Matching species to templates:");
+
+        var groupedByError = (
+            from s in parsedSpecies
+            let p = FindTaxoTemplate(s)
+            group s by p.error into g
+            select new
+            {
+                Error = g.Key,
+                Species = g.ToArray()
+            }
+        ).ToArray();
+
+        foreach (var grp in groupedByError)
+        {
+            log.Info(" - {count}: {error}; eg. {example}", grp.Species.Length, grp.Error ?? "fine", grp.Species[0].Title);
+        }
+
     }
 
     public void Analyze(String lang)

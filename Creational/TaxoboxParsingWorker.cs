@@ -41,11 +41,9 @@ public class TaxoboxParsingWorker
 
             log.Info($"Parsed {processed} of {total} pages", processed, total);
         }
-
-        LogParsingSummary(lang);
     }
 
-    void LogParsingSummary(String lang)
+    public void LogParsingSummary(String lang)
     {
         var db = dbFactory.CreateDbContext();
 
@@ -156,6 +154,7 @@ public class TaxoboxParsingWorker
 
         result.Lang = page.Lang;
         result.Title = page.Title;
+        result.Type = page.Type;
         result.Page = page;
         result.HasTruncationIssue = false;
 
