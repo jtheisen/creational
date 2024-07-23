@@ -47,7 +47,6 @@ var importer = serviceProvider.GetRequiredService<WikiDumpImporter>();
 
 var extractionWorker = serviceProvider.GetRequiredService<ContentExtractionWorker>();
 var parsingWorker = serviceProvider.GetRequiredService<TaxoboxParsingWorker>();
-var taxoboxImageCurator = serviceProvider.GetRequiredService<TaxoboxImageCurator>();
 var imageResolver = serviceProvider.GetRequiredService<WikiImageResolver>();
 var imageDownloader = serviceProvider.GetRequiredService<WikiImageDownloader>();
 var siteArchiveWriter = serviceProvider.GetRequiredService<SiteArchiveWriter>();
@@ -67,21 +66,20 @@ var analyzer = serviceProvider.GetRequiredService<TaxoboxSpaceAnalyzer>();
 //importer.TransferTaxoTemplateContents(lang);
 
 //parsingWorker.ProcessAll(lang, parseOnly: PageType.TaxoTemplate);
-//parsingWorker.ProcessAll(lang);
+parsingWorker.ProcessAll(lang);
 
 
 //analyzer.AnalyzeTaxoTemplates(lang);
 
-analyzer.AnalyzeSpecies(lang);
+//analyzer.AnalyzeSpecies(lang);
 
 
 //analyzer.Analyze(lang);
 
-//taxoboxImageCurator.Curate();
 //imageResolver.ResolveAllImages();
 //imageDownloader.DownloadAllThumbs();
 
 
-//siteArchiveWriter.WriteArchive(@"C:\Users\jens\Documents\Projects\creationaljs\src\site-archive-data.json", 100);
+siteArchiveWriter.WriteArchive(@"C:\Users\jens\Documents\Projects\creationaljs\src\site-archive-data.json", 100);
 
 log.Info("done");

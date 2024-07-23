@@ -176,6 +176,15 @@ public class WikiTaxobox
     public String Taxobox { get; set; }
 }
 
+public enum ExtantSituation
+{
+    Unset = 0,
+    Unclear = 1,
+    Extant = 2,
+    Extinct = 3,
+    WithDigit = 4
+}
+
 public enum PageImageSituation
 {
     Unknown = 0,
@@ -200,18 +209,6 @@ public class ParsingResult
 
     public PageImageSituation ImageSituation { get; set; }
 
-    [StringLength(200)]
-    public String Taxon { get; set; }
-
-    [StringLength(200)]
-    public String Genus { get; set; }
-
-    [StringLength(200)]
-    public String Species { get; set; }
-
-    [StringLength(200)]
-    public String Parent { get; set; }
-
     [CascadeDelete]
     public WikiPage Page { get; set; }
 
@@ -224,34 +221,15 @@ public class ParsingResult
     [StringLength(1000)]
     public String Exception { get; set; }
 
-    public Boolean HasTruncationIssue { get; set; }
-
     public Boolean HasDuplicateTaxoboxEntries { get; set; }
 
-    public Boolean WithTaxobox { get; set; }
+    public SpeciesValues SpeciesValues { get; set; }
 
     public TaxoTemplateValues TaxoTemplateValues { get; set; }
 
-    public ICollection<TaxoboxImageEntry> TaxoboxImageEntries { get; set; }
-
     public ICollection<TaxoboxEntry> TaxoboxEntries { get; set; }
 
-    public ICollection<TaxonomyEntry> TaxonomyEntries { get; set; }
-}
-
-public class TaxoboxImageEntry
-{
-    [StringLength(2)]
-    public String Lang { get; set; }
-
-    [StringLength(200)]
-    public String Title { get; set; }
-
-    [StringLength(2000)]
-    public String Filename { get; set; }
-
-    [CascadeDelete]
-    public ParsingResult ParsedPage { get; set; }
+    public ICollection<TaxoboxImageEntry> TaxoboxImageEntries { get; set; }
 }
 
 public class TaxoboxEntry
@@ -270,6 +248,47 @@ public class TaxoboxEntry
 
     [StringLength(200)]
     public String Value { get; set; }
+}
+
+public class TaxoboxImageEntry
+{
+    [StringLength(2)]
+    public String Lang { get; set; }
+
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    [StringLength(2000)]
+    public String Filename { get; set; }
+
+    [CascadeDelete]
+    public ParsingResult ParsedPage { get; set; }
+}
+
+public class SpeciesValues
+{
+    [StringLength(2)]
+    public String Lang { get; set; }
+
+    [StringLength(200)]
+    public String Title { get; set; }
+
+    [StringLength(80)]
+    public String Parent { get; set; }
+
+    public ExtantSituation ExtantSituation { get; set; }
+
+    [StringLength(200)]
+    public String Taxon { get; set; }
+
+    [StringLength(200)]
+    public String Genus { get; set; }
+
+    [StringLength(200)]
+    public String Species { get; set; }
+
+    [CascadeDelete]
+    public ParsingResult ParsedPage { get; set; }
 }
 
 public class TaxoTemplateValues
@@ -299,29 +318,6 @@ public class TaxoTemplateValues
     public ParsingResult ParsedPage { get; set; }
 }
 
-public class TaxonomyEntry
-{
-    [StringLength(2)]
-    public String Lang { get; set; }
-
-    [StringLength(200)]
-    public String Title { get; set; }
-
-    public Int32 No { get; set; }
-
-    [CascadeDelete]
-    public ParsingResult ParsedPage { get; set; }
-
-    [StringLength(80)]
-    public String Rank { get; set; }
-
-    [StringLength(80)]
-    public String Name { get; set; }
-
-    [StringLength(80)]
-    public String NameLocal { get; set; }
-}
-
 public class TaxonomyRelation
 {
     [StringLength(2)]
@@ -340,44 +336,6 @@ public class TaxonomyRelation
     public Int32 No { get; set; }
 }
 
-//public class WpProcessedLocationClade
-//{
-//    [StringLength(200)]
-//    public String Url { get; set; }
-
-//    [CascadeDelete]
-//    public WpProcessedLocation ProcessedLocation { get; set; }
-
-//    public DateTimeOffset LastProcessedAt { get; set; }
-
-//    public Int32 Order { get; set; }
-//}
-
-//public class Creature
-//{
-//    [Key]
-//    [StringLength(80)]
-//    public String Name { get; set; }
-
-//    public Creature Parent { get; set; }
-
-//    public String ParentName { get; set; }
-
-//    public ICollection<CreatureImage> Images { get; set; }
-//}
-
-//public class CreatureImage
-//{
-//    [Key]
-//    [StringLength(80)]
-//    public String Name { get; set; }
-
-//    public Creature Creature { get; set; }
-
-//    [StringLength(200)]
-//    public String Url { get; set; }
-//}
-
 public class ApplicationDb : DbContext
 {
     public DbSet<WikiPage> Pages { get; set; }
@@ -391,7 +349,6 @@ public class ApplicationDb : DbContext
     public DbSet<ParsingResult> ParsingResults { get; set; }
     public DbSet<TaxoTemplateValues> TaxoTemplateValues { get; set; }
     public DbSet<TaxoboxImageEntry> TaxoboxImageEntries { get; set; }
-    public DbSet<TaxoboxEntry> TaxoboxEntries { get; set; }
     public DbSet<TaxonomyRelation> TaxonomyRelations { get; set; }
 
     //public DbSet<WpProcessedLocation> WpProcessedLocations { get; set; }
@@ -493,6 +450,15 @@ public class ApplicationDb : DbContext
             .HasForeignKey<ParsingResult>(e => new { e.Lang, e.Title })
             ;
 
+        modelBuilder.Entity<SpeciesValues>()
+            .HasKey(e => new { e.Lang, e.Title })
+            ;
+        modelBuilder.Entity<SpeciesValues>()
+            .HasOne(e => e.ParsedPage)
+            .WithOne(e => e.SpeciesValues)
+            .HasForeignKey<SpeciesValues>(e => new { e.Lang, e.Title })
+            ;
+
         modelBuilder.Entity<TaxoTemplateValues>()
             .HasKey(e => new { e.Lang, e.Title })
             ;
@@ -500,6 +466,14 @@ public class ApplicationDb : DbContext
             .HasOne(e => e.ParsedPage)
             .WithOne(e => e.TaxoTemplateValues)
             .HasForeignKey<TaxoTemplateValues>(e => new { e.Lang, e.Title })
+            ;
+
+        modelBuilder.Entity<TaxoboxEntry>()
+            .HasKey(e => new { e.Lang, e.Title, e.Key })
+            ;
+        modelBuilder.Entity<TaxoboxEntry>()
+            .HasOne(e => e.ParsedPage)
+            .WithMany(e => e.TaxoboxEntries)
             ;
 
         modelBuilder.Entity<TaxoboxImageEntry>()
@@ -513,33 +487,6 @@ public class ApplicationDb : DbContext
             .HasOne(e => e.ParsedPage)
             .WithMany(e => e.TaxoboxImageEntries)
             .HasForeignKey(e => new { e.Lang, e.Title })
-            ;
-
-        modelBuilder.Entity<TaxoboxEntry>()
-            .HasKey(e => new { e.Lang, e.Title, e.Key })
-            ;
-        modelBuilder.Entity<TaxoboxEntry>()
-            .HasOne(e => e.ParsedPage)
-            .WithMany(e => e.TaxoboxEntries)
-            ;
-        modelBuilder.Entity<TaxonomyEntry>()
-            .HasKey(e => new { e.Lang, e.Title, e.No })
-            ;
-        modelBuilder.Entity<TaxonomyEntry>()
-            .HasOne(e => e.ParsedPage)
-            .WithMany(e => e.TaxonomyEntries)
-            ;
-        modelBuilder.Entity<TaxonomyEntry>()
-            .HasIndex(e => new { e.Lang, e.Rank, e.Title })
-            .IncludeProperties(e => new { e.Name, e.NameLocal })
-            ;
-        modelBuilder.Entity<TaxonomyEntry>()
-            .HasIndex(e => new { e.Lang, e.Name, e.Rank, e.Title })
-            .IncludeProperties(e => new { e.NameLocal })
-            ;
-        modelBuilder.Entity<TaxonomyEntry>()
-            .HasIndex(e => new { e.Lang, e.NameLocal, e.Rank, e.Title })
-            .IncludeProperties(e => new { e.Name })
             ;
 
         modelBuilder.Entity<TaxonomyRelation>()

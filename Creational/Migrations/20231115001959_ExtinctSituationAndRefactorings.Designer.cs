@@ -4,6 +4,7 @@ using Creational;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,10 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Creational.Migrations
 {
     [DbContext(typeof(ApplicationDb))]
-    partial class ApplicationDbModelSnapshot : ModelSnapshot
+    [Migration("20231115001959_ExtinctSituationAndRefactorings")]
+    partial class ExtinctSituationAndRefactorings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -88,11 +90,6 @@ namespace Creational.Migrations
                         .HasMaxLength(200)
                         .IsUnicode(false)
                         .HasColumnType("varchar(200)");
-
-                    b.Property<string>("Parent")
-                        .HasMaxLength(80)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(80)");
 
                     b.Property<string>("Species")
                         .HasMaxLength(200)

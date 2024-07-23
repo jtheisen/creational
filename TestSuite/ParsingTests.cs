@@ -137,46 +137,6 @@ public class ParsingTests
         Assert.ThrowsException<Exception>(() => parser.ParseEntriesForTesting(broken));
     }
 
-    public static IEnumerable<Object[]> TestTaxonomyParsingData
-    {
-        get
-        {
-            yield return new Object[]
-            {
-                """
-                Eukaryota,Eukaryoten,Domäne
-                ,Lebewesen,Klassifikation
-                """,
-                """
-                {{Taxobox
-                | Taxon_Name       = Eukaryoten
-                | Taxon_WissName   = Eukaryota
-                | Taxon_Rang       = Domäne
-                | Taxon_Autor      = [[Edouard Chatton|Chatton]], 1925
-                | Taxon2_Name      = Lebewesen
-                | Taxon2_Rang      = Klassifikation
-                | Bild             = Eukaryota diversity 2.jpg
-                | Bildbeschreibung = Verschiedene Eukaryoten
-                }}
-                """
-            };
-        }
-    }
-
-    [TestMethod]
-    [DynamicData(nameof(TestTaxonomyParsingData))]
-    public void TestTaxonomyParsing(String expected, String original)
-    {
-        var result = new ParsingResult();
-
-        parser.ParseIntoParsingResult(result, original);
-
-        var actual = String.Join("\n", result.TaxonomyEntries.Select(e => $"{e.Name},{e.NameLocal},{e.Rank}"));
-
-        Assert.AreEqual(expected.ReplaceLineEndings(), actual.ReplaceLineEndings());
-    }
-
-
     public static IEnumerable<Object[]> TestImageLinkParsingData
     {
         get

@@ -156,7 +156,6 @@ public class TaxoboxParsingWorker
         result.Title = page.Title;
         result.Type = page.Type;
         result.Page = page;
-        result.HasTruncationIssue = false;
 
         if (IsHandledTaxoTemplateRoot(result))
         {

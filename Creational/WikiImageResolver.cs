@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NLog;
+using System.Linq;
 using System.Net;
 
 namespace Creational;
@@ -16,10 +17,10 @@ public class WikiImageResolver
     {
         this.dbFactory = dbFactory;
     }
-
-    IQueryable<String> GetImageQuery(ApplicationDb db) =>
-        db.ImageLinks.Select(i => i.Filename)
-        .Union(db.TaxoboxImages.Select(i => i.Filename))
+    
+    IQueryable < String > GetImageQuery(ApplicationDb db) =>
+        db.TaxoboxImageEntries.Where(e => e.ParsedPage.TemplateName == "speciesbox").Select(i => i.Filename)
+        //.Union(db.ImageLinks.Select(i => i.Filename))
         .Distinct();
 
     public void ResolveAllImages()
@@ -97,6 +98,7 @@ public class WikiImageResolver
             join ri in db.ResolvedImages on fn equals ri.Filename into resolved
             from ri in resolved.DefaultIfEmpty()
             where ri == null
+            orderby fn
             select fn
         )
         .Take(batchSize)
@@ -111,12 +113,14 @@ public class WikiImageResolver
 
         Task.WaitAll(tasks);
 
+        db.ResolvedImages.AddRange(from t in tasks where t.IsCompletedSuccessfully select t.Result);
+
         db.SaveChanges();
 
         return tasks.Length;
     }
 
-    public async Task<Uri> ResolveImageUrl(ApplicationDb db, String fileName)
+    public async Task<WikiResolvedImage> ResolveImageUrl(ApplicationDb db, String fileName)
     {
         log.Info("Resolving '{fileName}'", fileName);
 
@@ -139,13 +143,11 @@ public class WikiImageResolver
 
         var status = response.StatusCode;
 
-        db.ResolvedImages.Add(new WikiResolvedImage
+        return new WikiResolvedImage
         {
             Filename = fileName,
             Uri = response.ResponseUri?.ToString(),
             Status = (Int32)status
-        });
-
-        return response.ResponseUri;
+        };
     }
 }

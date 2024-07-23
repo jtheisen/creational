@@ -61,8 +61,6 @@ public class HeuristicTaxoboxParser
     Regex regexXmlComment = new Regex(@"<!--.*?-->", RegexOptions.Singleline);
     Regex regexDewikifiy = new Regex(@"(\[\[[^\]]*?([^\]|]*)\]\])");
 
-    public record Result(TaxoboxEntry[] TaxoboxEntries, TaxonomyEntry[] TaxonomyEntries);
-
     public String Dewikify(String text)
     {
         return regexDewikifiy.Replace(text, me => me.Groups[2].Value);
@@ -174,30 +172,6 @@ public class HeuristicTaxoboxParser
         result.TaxoboxEntries = taxoboxEntries;
     }
 
-    public ICollection<TaxonomyEntry> GetTaxonomyEntries(IEnumerable<TaxoboxEntry> taxoboxEntries, out Boolean haveTruncationIssue)
-    {
-        haveTruncationIssue = false;
-
-        var taxonomyEntries = new TaxonomyEntry[10];
-
-        var taxonomyEntriesToWrite = new List<TaxonomyEntry>();
-        foreach (var entry in taxoboxEntries)
-        {
-            if (!entry.Key.StartsWith("taxon", StringComparison.InvariantCultureIgnoreCase)) continue;
-
-            ParseAndFillTaxoEntry(taxonomyEntries, entry, out haveTruncationIssue);
-        }
-
-        foreach (var te in taxonomyEntries)
-        {
-            if (te?.Name is null && te?.NameLocal is null) continue;
-
-            taxonomyEntriesToWrite.Add(te);
-        }
-
-        return taxonomyEntriesToWrite;
-    }
-
     public String ParseEntriesForTesting(String text)
     {
         Sanitize(ref text);
@@ -254,75 +228,12 @@ public class HeuristicTaxoboxParser
         }
     }
 
-    void ParseAndFillTaxoEntry(TaxonomyEntry[] taxonomyEntries, TaxoboxEntry taxoboxEntry, out Boolean haveTruncationIssue)
-    {
-        haveTruncationIssue = false;
-
-        if (ParseTaxoKey(taxoboxEntry.Key, out var i, out var fieldName))
-        {
-            var field = ParseTaxoboxFieldName(fieldName);
-
-            if (field is null) return;
-
-            ref var target = ref taxonomyEntries[i];
-
-            target ??= new TaxonomyEntry();
-
-            target.Lang = taxoboxEntry.Lang;
-            target.No = i;
-
-            var value = Dewikify(taxoboxEntry.Value).Truncate(50);
-
-            if (value.Length == 50)
-            {
-                haveTruncationIssue = true;
-            }
-
-            field.property.SetValue(target, value);
-        }
-    }
-
     enum TaxoboxField
     {
         Unknown,
         Rank,
         Name,
         NameDe
-    }
-
-    record TaxonomyEntryProperty(TaxoboxField field, String deName, PropertyInfo property);
-
-    static TaxonomyEntryProperty[] taxonomyEntryProperties;
-
-    static HeuristicTaxoboxParser()
-    {
-        var type = typeof(TaxonomyEntry);
-
-        TaxonomyEntryProperty GetProp(String propertyName, TaxoboxField field, String deName)
-        {
-            var property = type.GetProperty(propertyName) ?? throw new Exception("Such such property");
-
-            return new TaxonomyEntryProperty(field, deName, property);
-        }
-
-        taxonomyEntryProperties = new[]
-        {
-            GetProp(nameof(TaxonomyEntry.Rank), TaxoboxField.Rank, "rang"),
-            GetProp(nameof(TaxonomyEntry.Name), TaxoboxField.Rank, "wissname"),
-            GetProp(nameof(TaxonomyEntry.NameLocal), TaxoboxField.Rank, "name")
-        };
-    }
-
-    TaxonomyEntryProperty ParseTaxoboxFieldName(String field)
-    {
-        foreach (var prop in taxonomyEntryProperties)
-        {
-            if (!field.Equals(prop.deName, StringComparison.InvariantCultureIgnoreCase)) continue;
-
-            return prop;
-        }
-
-        return null;
     }
 
     Boolean ParseTaxoKey(String key, out Int32 i, out String field)

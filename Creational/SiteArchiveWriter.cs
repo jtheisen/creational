@@ -87,24 +87,15 @@ public class SiteArchiveWriter
 
         var relations = db.TaxonomyRelations.Where(r => r.Lang == lang).ToArray();
 
-        var wikiTextImages = (
-            from il in db.ImageLinks
-            where il.Filename.EndsWith(".jpeg") || il.Filename.EndsWith(".jpg") || il.Filename.EndsWith(".png")
-            join ri in db.ResolvedImages on il.Filename equals ri.Filename into resolved
-            from ri in resolved
-            select new { il.Title, ri.Uri, IsTaxoboxImage = false }
-        ).ToArray();
-
         var taxoboxImages = (
-            from ti in db.TaxoboxImages
+            from ti in db.TaxoboxImageEntries
+            where ti.Lang == lang
             join ri in db.ResolvedImages on ti.Filename equals ri.Filename into resolved
             from ri in resolved
             join di in db.ImageData on ti.Filename equals di.Filename into data
             from di in data
             select new { ti.Title, ri.Uri, di.Width, di.Height, IsTaxoboxImage = true }
         ).ToArray();
-
-
 
         var rootPage = pages.FirstOrDefault(p => p.Title == "Lebewesen");
 

@@ -1,9 +1,11 @@
 ﻿using Creational.Migrations;
 using Humanizer;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Net;
 using System.Text;
 using System.Xml.Linq;
+using System.Xml.XPath;
 
 namespace Creational;
 
@@ -753,11 +755,44 @@ public static class WikiParserExtensions
 
         String GetStringEntry(String key, Int32 maxLength) => GetEntryElement(key)?.Value.TruncateUtf8(maxLength);
 
+        ExtantSituation GetExtantSituation()
+        {
+            var value = GetEntryElement("extinct")?.Value.ToLower();
+
+            if (value is null)
+            {
+                return ExtantSituation.Extant;
+            }
+            else if (value == "yes" || value == "true")
+            {
+                return ExtantSituation.Extinct;
+            }
+            else if (value.Any(c => Char.IsDigit(c)))
+            {
+                return ExtantSituation.WithDigit;
+            }
+            else
+            {
+                return ExtantSituation.Unclear;
+            }
+        }
+
         result.TemplateName = taxoboxName;
-        result.Genus = GetStringEntry("genus", 200);
-        result.Species = GetStringEntry("species", 200);
-        result.Taxon = GetStringEntry("taxon", 200);
-        result.Parent = GetStringEntry("parent", 200);
+
+        if (taxoboxName.Equals("speciesbox", StringComparison.InvariantCultureIgnoreCase))
+        {
+            var values = result.SpeciesValues = new SpeciesValues
+            {
+                Lang = result.Lang,
+                Title = result.Title,
+                Genus = GetStringEntry("genus", 200),
+                Species = GetStringEntry("species", 200),
+                Taxon = GetStringEntry("taxon", 200),
+                ExtantSituation = GetExtantSituation(),
+            };
+
+            values.Parent = GetSpeciesParent(values).parent?.TruncateUtf8(80);
+        }
 
         var imageElement = GetEntryElement("image");
 
@@ -773,6 +808,52 @@ public static class WikiParserExtensions
                 Title = result.Title,
                 Filename = i.Truncate(200)
             }).ToList();
+        }
+    }
+
+    static (String genus, String species, String error) SplitTaxon(String taxon)
+    {
+        var parts = taxon
+            .Split(' ')
+            .Where(p => !String.IsNullOrWhiteSpace(p))
+            .ToArray();
+
+        if (parts.Length == 1)
+        {
+            return (parts[0], parts[0], null);
+        }
+        else if (parts.Length == 2)
+        {
+            return (parts[0], parts[1], null);
+        }
+        else
+        {
+            return (parts[0], String.Join(" ", parts[1..]), null);
+        }
+    }
+
+    static (String parent, String error) GetSpeciesParent(SpeciesValues speciesValues)
+    {
+        if (speciesValues.Taxon is String taxon && !String.IsNullOrWhiteSpace(taxon))
+        {
+            var (genus, _, error) = SplitTaxon(taxon);
+
+            if (genus is not null)
+            {
+                return (genus, "taxon not found");
+            }
+            else
+            {
+                return (null, error ?? "unknown error");
+            }
+        }
+        else if (speciesValues.Genus is String genus && !String.IsNullOrWhiteSpace(genus))
+        {
+            return (genus, "genus not found");
+        }
+        else
+        {
+            return (null, "neither parent nor genus set");
         }
     }
 
