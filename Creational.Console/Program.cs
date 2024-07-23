@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 IServiceProvider serviceProvider;
 {
-    var connectionString = @"Server=.\;Database=creational-test;integrated security=true";
+    var connectionString = @"Server=.\;Database=creational-test;integrated security=true;trust server certificate=true";
     var services = new ServiceCollection();
     services.AddDbContextFactory<ApplicationDb>(o => o.UseSqlServer(connectionString));
     serviceProvider = services.BuildServiceProvider();
