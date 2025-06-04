@@ -1,0 +1,4 @@
+data/
+
+.snakemake/
+__pycache__/

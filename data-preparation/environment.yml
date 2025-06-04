@@ -1,0 +1,11 @@
+name: creational
+channels:
+  - conda-forge
+  - bioconda
+  - snakemake
+  - defaults
+dependencies:
+  - snakemake
+  - tabulate
+  - python-duckdb
+  - pyarrow

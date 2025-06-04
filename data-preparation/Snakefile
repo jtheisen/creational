@@ -1,0 +1,170 @@
+import shutil
+import os
+import json
+import duckdb
+import numpy
+import pyarrow.parquet as pq
+
+#os.chdir("data")
+
+dir_root = "../.."
+
+dir_creational_vite = f"{dir_root}/creational-client/public"
+
+outputs = [
+    "taxonomy_source.parquet",
+    "taxonomy_annotated.parquet",
+    "taxonomy.parquet",
+    "rank_puddle_roots.parquet",
+
+    f"{dir_creational_vite}/rank.bin",
+    f"{dir_creational_vite}/child_count.bin",
+    f"{dir_creational_vite}/parent_for_debugging.bin",
+    f"{dir_creational_vite}/rank_puddle_roots.bin",
+
+    f"{dir_creational_vite}/names.json",
+    f"{dir_creational_vite}/ranks.json"
+]
+
+con = None
+taxonomy_numpy = None
+
+def get_parquet_numpy(file_name):
+  table = get_from_taxonomy(f"select * from '{file_name}'").fetchnumpy()
+  return table
+
+def get_parquet_numpy_column(file_name, col_name, bits):
+  table = get_parquet_numpy(file_name)
+  column = table[col_name]
+  if (column.itemsize * 8 != bits):
+    raise Exception(f"Expected item size of {bits} bits, got {data.itemsize * 8} bits")
+  return column
+
+def get_taxonomy_numpy():
+  global taxonomy_numpy
+  if (not taxonomy_numpy):
+    taxonomy_numpy = get_from_taxonomy("select * from 'taxonomy.parquet'").fetchnumpy()
+  return taxonomy_numpy
+
+def get_taxonomy_numpy_column(col, bits):
+  data = get_taxonomy_numpy()[col]
+  if (data.itemsize * 8 != bits):
+    raise Exception(f"Expected item size of {bits} bits, got {data.itemsize * 8} bits")
+  return data
+
+def get_from_taxonomy(sql):
+  global con
+  if (not con):
+    con = duckdb.connect()
+  return con.execute(sql)
+
+rule get_taxonomy:
+  input: "C:/Users/jens/Downloads/taxonomy.tsv"
+  output: "taxonomy.tsv"
+  run: shutil.copyfile(input[0], output[0])
+
+rule trim_taxonomy:
+  input: "taxonomy.tsv"
+  output: "taxonomy_stripped.tsv"
+  run: 
+    trim_cmd = f"echo 'Trimming...' && tr -d '\t' < taxonomy.tsv > taxonomy_stripped.tsv";
+    subprocess.run(["bash", "-c", trim_cmd], check=True)
+
+rule with_duckdb:
+  script:
+    "run_duckdb.py"
+
+use rule with_duckdb as parquet_taxonomy with:
+  input:
+    "taxonomy.tsv",
+    "../parquet_taxonomy.sql"
+  output:
+    "taxonomy_source.parquet"
+
+use rule with_duckdb as annotate_taxonomy with:
+  input:
+    "taxonomy_source.parquet",
+    "../taxon_exclude_flags.csv",
+    "../annotate_taxonomy.sql"
+  output:
+    "taxonomy_annotated.parquet"
+
+rule process_taxonomy:
+  input:
+    "taxonomy_annotated.parquet",
+  output:
+    "taxonomy_structure.parquet",
+    "ranks.json"
+  params:
+    full=False
+  script:
+    "process_taxonomy.py"
+
+use rule with_duckdb as combine_taxonomy with:
+  input:
+    "taxonomy_annotated.parquet",
+    "taxonomy_structure.parquet",
+    "../combine_taxonomy.sql"
+  output:
+    "taxonomy.parquet"
+
+use rule with_duckdb as check_taxonomy with:
+  input:
+    "taxonomy.parquet",
+    "../check_taxonomy.sql"
+  output:
+    "rank_puddle_roots.parquet"
+
+rule rank_bin:
+  input:
+    "taxonomy.parquet"
+  output:
+    f"{dir_creational_vite}/rank.bin"
+  run:
+    data = get_taxonomy_numpy_column('rank_level', 32)
+    data.tofile(f"{dir_creational_vite}/rank.bin")
+
+rule parent_bin:
+  input:
+    "taxonomy.parquet"
+  output:
+    f"{dir_creational_vite}/parent_for_debugging.bin"
+  run:
+    data = get_taxonomy_numpy_column('parent_item_number', 32)
+    data.tofile(f"{dir_creational_vite}/parent_for_debugging.bin")
+
+rule child_count_bin:
+  input:
+    "taxonomy.parquet"
+  output:
+    f"{dir_creational_vite}/child_count.bin"
+  run:
+    get_taxonomy_numpy()['child_count'].tofile(f"{dir_creational_vite}/child_count.bin")
+
+rule rank_puddles_roots_bin:
+  input:
+    "rank_puddle_roots.parquet"
+  output:
+    f"{dir_creational_vite}/rank_puddle_roots.bin"
+  run:
+    roots = get_parquet_numpy_column('rank_puddle_roots.parquet', 'item_number', 32)
+    roots.tofile(f"{dir_creational_vite}/rank_puddle_roots.bin")
+
+rule names_json:
+  input: "taxonomy.parquet"
+  output: f"{dir_creational_vite}/names.json"
+  run:
+    rows = get_from_taxonomy("select name from 'taxonomy.parquet' order by item_number").fetchall()
+    names = [r[0] for r in rows]
+    with open(output[0], "w") as f: json.dump(names, f)
+
+rule copy_file:
+  run:
+    shutil.copyfile(input[0], output[0])
+
+use rule copy_file as copy_ranks_file with:
+  input: "ranks.json"
+  output: f"{dir_creational_vite}/ranks.json"
+
+rule all:
+  input: outputs
